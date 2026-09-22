@@ -1,10 +1,14 @@
 {
-  "name": "my-x-helper",
+  "name": "x-follow-flow",
   "version": "0.1.0",
   "description": "Tampermonkey / Violentmonkey userscript for X (Twitter) timeline Follow and Unfollow",
   "type": "module",
   "scripts": {
     "test": "node test/userscript.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haorui-lab/x-follow-flow.git"
   },
   "keywords": [
     "userscript",
@@ -13,8 +17,14 @@
     "twitter",
     "x",
     "timeline",
-    "follow"
+    "follow",
+    "unfollow",
+    "feed"
   ],
-  "author": "myXHelper",
-  "license": "MIT"
+  "author": "haorui",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/haorui-lab/x-follow-flow/issues"
+  },
+  "homepage": "https://github.com/haorui-lab/x-follow-flow#readme"
 }

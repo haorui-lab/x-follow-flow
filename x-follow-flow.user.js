@@ -1,11 +1,15 @@
 // ==UserScript==
-// @name         X Timeline Follow Button
-// @name:zh-CN   X 推荐流关注/取关按钮
-// @namespace    https://github.com/myXHelper
+// @name         X FollowFlow
+// @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
+// @namespace    https://github.com/haorui-lab/x-follow-flow
 // @version      0.1.0
 // @description  Add lightweight Follow / Unfollow buttons directly to X timelines (For You, Following, Search, etc.) with 2-step confirmation and instant state sync.
 // @description:zh-CN 在 X (Twitter) 时间线（For You 推荐流、Following 等）每条推文作者栏直接显示关注状态并支持一键 Follow / Unfollow（防误触确认与多卡同步）。
-// @author       myXHelper
+// @author       haorui
+// @homepageURL  https://github.com/haorui-lab/x-follow-flow
+// @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
+// @downloadURL  https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js
+// @updateURL    https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js
 // @match        https://x.com/*
 // @match        https://twitter.com/*
 // @icon         https://abs.twimg.com/favicons/twitter.3.ico

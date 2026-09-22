@@ -1,6 +1,6 @@
-# X Timeline Follow Button (myXHelper)
+# X FollowFlow (x-follow-flow)
 
-> 面向 **x.com** (Twitter) 的轻量级浏览器用户脚本（Userscript），专为提升推文流浏览体验而设计。
+> 面向 **x.com** (Twitter) 的轻量级浏览器用户脚本（Userscript），在时间线中直接显示作者关注状态并就地 Follow / Unfollow，无感丝滑、防误触。  
 > 优先支持 **Tampermonkey** 与 **Violentmonkey**。
 
 ---
@@ -53,12 +53,20 @@
 
 ---
 
-### 方法：手动导入安装
+### 方法一：一键在线安装（推荐）
+
+点击下方 Raw 脚本链接，脚本管理器将自动弹出安装确认窗口：
+
+👉 **[点击直接安装 x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
+
+---
+
+### 方法二：手动导入安装
 
 1. 打开用户脚本管理器（如 Tampermonkey）的管理面板。
 2. 点击 **“实用工具” (Utilities)** 或 **“+” (添加新脚本)**。
-3. 复制本项目中的 [`x-timeline-follow-button.user.js`](./x-timeline-follow-button.user.js) 全部代码并粘贴保存。
-4. 刷新或打开 [https://x.com/home](https://x.com/home) 即可生效。
+3. 复制本项目中的 [`x-follow-flow.user.js`](./x-follow-flow.user.js) 全部代码并粘贴保存。
+4. 打开或刷新 [https://x.com/home](https://x.com/home) 即可生效。
 
 ---
 
