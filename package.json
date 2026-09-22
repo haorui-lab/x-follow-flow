@@ -1,6 +1,6 @@
 {
   "name": "x-follow-flow",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tampermonkey / Violentmonkey userscript for X (Twitter) timeline Follow and Unfollow",
   "type": "module",
   "scripts": {

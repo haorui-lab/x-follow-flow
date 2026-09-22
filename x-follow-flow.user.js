@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.2.0
-// @description  Add lightweight Follow / Unfollow icon button directly next to Grok on X timelines (For You, Following, Search, etc.) with 2-step confirmation and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线（For You 推荐流、Following 等）Grok 图标旁增加轻量关注/取关 Icon 按钮，支持防误触二次确认与多卡同步。
+// @version      0.3.0
+// @description  Add high-recognition Follow / Unfollow icon button directly next to Grok on X timelines (For You, Following, Search, etc.) with 2-step confirmation and instant state sync.
+// @description:zh-CN 在 X (Twitter) 时间线 Grok 图标旁增加高辨识度关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -29,43 +29,46 @@
     maxCaretWaitMs: 800
   };
 
-  // SVG Icons (Clean 24x24 paths, rendered at 18.5x18.5)
+  // High-Recognition Crisp SVG Icons (+ / ✓ / −)
   const ICONS = {
-    // Person with plus (+)
+    // Sharp Bold Plus (+): Unfollowed state
     follow: `
-      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
-        <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
-    // Person with checkmark (✓)
+    // Sharp Bold Checkmark (✓): Followed state
     following: `
-      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
-        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm6.59-1.59L17.17 11l-3.59 3.59 1.42 1.41 2.17-2.17 4.18 4.18 1.41-1.41z"/>
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
     `,
-    // Person with minus (-) for unfollow confirmation
+    // Sharp Bold Minus (−): Unfollow confirmation state
     unfollowConfirm: `
-      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
-        <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-1h6v2H6zm9 3c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
     // Loading spinner
     loading: `
-      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="none" stroke="currentColor" stroke-width="2.5" class="x-follow-spinner">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" class="x-follow-spinner">
         <circle cx="12" cy="12" r="9" stroke-opacity="0.25"/>
         <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
       </svg>
     `,
-    // Error / Failed
+    // Failed indicator
     failed: `
-      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     `,
-    // Pending
+    // Pending clock
     pending: `
-      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
-        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="12 7 12 12 15 15"/>
       </svg>
     `
   };
@@ -118,7 +121,7 @@
   const stateManager = new FollowStateManager();
 
   // ==========================================
-  // 2. Network Interceptor (GraphQL & REST API)
+  // 2. Comprehensive Network Interceptor (Fetch + XHR)
   // ==========================================
   function extractUsersFromData(data) {
     if (!data || typeof data !== 'object') return;
@@ -130,7 +133,6 @@
       if (screenName) {
         const existing = stateManager.get(screenName) || {};
 
-        // Modern GraphQL: check relationship_perspectives, legacy, or root
         let followingState = existing.following;
         if (data.relationship_perspectives && data.relationship_perspectives.following !== undefined) {
           followingState = Boolean(data.relationship_perspectives.following);
@@ -181,45 +183,56 @@
     if (!win || win.__x_follow_network_hooked) return;
     win.__x_follow_network_hooked = true;
 
-    const originalFetch = win.fetch;
-    win.fetch = async function (...args) {
-      const response = await originalFetch.apply(this, args);
+    // Check window.__INITIAL_STATE__
+    if (win.__INITIAL_STATE__) {
       try {
-        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-        if (url.includes('/i/api/graphql/') || url.includes('/i/api/1.1/friendships/')) {
-          const clone = response.clone();
-          clone.json().then(data => {
-            if (!data) return;
-            if (url.includes('/friendships/create.json')) {
-              const screenName = (data.screen_name || '').toLowerCase();
-              if (screenName) {
-                stateManager.set(screenName, {
-                  following: true,
-                  pending: Boolean(data.following_requested),
-                  restId: String(data.id_str || '')
-                });
-              }
-            } else if (url.includes('/friendships/destroy.json')) {
-              const screenName = (data.screen_name || '').toLowerCase();
-              if (screenName) {
-                stateManager.set(screenName, {
-                  following: false,
-                  pending: false,
-                  restId: String(data.id_str || '')
-                });
-              }
-            } else {
-              extractUsersFromData(data);
+        extractUsersFromData(win.__INITIAL_STATE__);
+      } catch (e) {}
+    }
+
+    // 1. Hook Fetch
+    const originalFetch = win.fetch;
+    if (originalFetch) {
+      win.fetch = async function (...args) {
+        const response = await originalFetch.apply(this, args);
+        try {
+          const url = String(args[0]?.url || args[0] || '');
+          if (url.includes('/graphql') || url.includes('/friendships') || url.includes('/i/api/')) {
+            const clone = response.clone();
+            clone.json().then(data => {
+              if (data) extractUsersFromData(data);
+            }).catch(() => {});
+          }
+        } catch (err) {}
+        return response;
+      };
+    }
+
+    // 2. Hook XMLHttpRequest
+    const originalOpen = win.XMLHttpRequest?.prototype?.open;
+    const originalSend = win.XMLHttpRequest?.prototype?.send;
+    if (originalOpen && originalSend) {
+      win.XMLHttpRequest.prototype.open = function (...args) {
+        this._x_url = String(args[1] || '');
+        return originalOpen.apply(this, args);
+      };
+
+      win.XMLHttpRequest.prototype.send = function (...args) {
+        this.addEventListener('load', function () {
+          try {
+            if (this._x_url && (this._x_url.includes('/graphql') || this._x_url.includes('/friendships') || this._x_url.includes('/i/api/'))) {
+              const data = JSON.parse(this.responseText);
+              if (data) extractUsersFromData(data);
             }
-          }).catch(() => {});
-        }
-      } catch (err) {}
-      return response;
-    };
+          } catch (e) {}
+        });
+        return originalSend.apply(this, args);
+      };
+    }
   }
 
   // ==========================================
-  // 3. React Tree & DOM Inspection (Fail-Safe State)
+  // 3. React Tree & DOM Inspection (Target-Specific)
   // ==========================================
   let cachedCurrentUser = null;
 
@@ -290,15 +303,19 @@
     return null;
   }
 
-  function searchReactTreeForUser(obj, depth = 0, visited = new WeakSet()) {
-    if (!obj || typeof obj !== 'object' || depth > 8) return null;
+  // Searches React Props & State specifically matching targetAuthor
+  function searchReactTreeForUser(obj, targetAuthor, depth = 0, visited = new WeakSet()) {
+    if (!obj || typeof obj !== 'object' || depth > 10) return null;
     if (visited.has(obj)) return null;
     visited.add(obj);
 
+    const target = (targetAuthor || '').toLowerCase();
     const legacy = obj.legacy;
     const rel = obj.relationship_perspectives;
-    if ((legacy && legacy.screen_name) || obj.screen_name) {
-      const screenName = (legacy?.screen_name || obj.screen_name).toLowerCase();
+    const screenName = (legacy?.screen_name || obj.screen_name || '').toLowerCase();
+
+    // ONLY match if screenName matches targetAuthor
+    if (screenName && screenName === target) {
       let following = undefined;
       if (rel && rel.following !== undefined) {
         following = Boolean(rel.following);
@@ -320,17 +337,17 @@
       }
     }
 
-    // Check Caret menu actions if stored in props
+    // Check Caret menu actions specifically for targetAuthor
     if (Array.isArray(obj)) {
       for (const item of obj) {
         if (item && typeof item === 'object') {
           const text = String(item.text || item.title || item.label || '').toLowerCase();
-          if (text.includes('unfollow') || text.includes('取消关注')) {
-            return { following: true };
-          }
-          if (text.includes('follow') || text.includes('关注')) {
-            if (!text.includes('unfollow') && !text.includes('取消关注')) {
-              return { following: false };
+          if (text.includes(`@${target}`)) {
+            if (text.includes('unfollow') || text.includes('取消关注')) {
+              return { username: target, following: true };
+            }
+            if (text.includes('follow') || text.includes('关注')) {
+              return { username: target, following: false };
             }
           }
         }
@@ -338,9 +355,9 @@
     }
 
     for (const key of Object.keys(obj)) {
-      if (key === 'children' && depth > 2) continue;
+      if (key === 'children' && depth > 3) continue;
       if (typeof obj[key] === 'object' && obj[key] !== null) {
-        const found = searchReactTreeForUser(obj[key], depth + 1, visited);
+        const found = searchReactTreeForUser(obj[key], target, depth + 1, visited);
         if (found) return found;
       }
     }
@@ -348,32 +365,34 @@
   }
 
   function inspectFollowState(tweetArticle, author) {
-    if (!tweetArticle) return null;
+    if (!tweetArticle || !author) return null;
 
+    // 1. Inspect elements specifically bound to author
+    const authorLinks = tweetArticle.querySelectorAll(`a[href="/${author}" i], a[href^="/${author}?" i]`);
     const caret = tweetArticle.querySelector('button[data-testid="caret"]');
-    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
     const avatarEl = tweetArticle.querySelector('div[data-testid="Tweet-User-Avatar"]');
-    const elements = [caret, userNameEl, avatarEl, tweetArticle].filter(Boolean);
+    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
+    const elements = [...authorLinks, caret, avatarEl, userNameEl, tweetArticle].filter(Boolean);
 
     for (const el of elements) {
       const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps$'));
       if (propsKey && el[propsKey]) {
-        const found = searchReactTreeForUser(el[propsKey]);
-        if (found && (found.username === author || found.following !== undefined)) {
-          return found;
-        }
+        const found = searchReactTreeForUser(el[propsKey], author);
+        if (found) return found;
       }
 
       const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
       if (fiberKey && el[fiberKey]) {
         let fiber = el[fiberKey];
         let depth = 0;
-        while (fiber && depth < 20) {
+        while (fiber && depth < 25) {
           if (fiber.memoizedProps) {
-            const found = searchReactTreeForUser(fiber.memoizedProps);
-            if (found && (found.username === author || found.following !== undefined)) {
-              return found;
-            }
+            const found = searchReactTreeForUser(fiber.memoizedProps, author);
+            if (found) return found;
+          }
+          if (fiber.memoizedState) {
+            const found = searchReactTreeForUser(fiber.memoizedState, author);
+            if (found) return found;
           }
           fiber = fiber.return;
           depth++;
@@ -382,6 +401,79 @@
     }
 
     return null;
+  }
+
+  // 4. HoverCard Observer: Auto-captures ground truth when hovercard opens
+  function initHoverCardObserver() {
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const hoverCard = node.matches && (node.matches('[data-testid="HoverCard"]') ? node : node.querySelector('[data-testid="HoverCard"]'));
+            if (hoverCard) {
+              const userLink = hoverCard.querySelector('a[href^="/"][role="link"]');
+              const href = userLink?.getAttribute('href') || '';
+              const match = href.match(/^\/([A-Za-z0-9_]{1,15})/);
+              if (match) {
+                const username = match[1].toLowerCase();
+                const isUnfollowBtn = hoverCard.querySelector('[data-testid$="-unfollow"]');
+                const isFollowBtn = hoverCard.querySelector('[data-testid$="-follow"]');
+                const text = hoverCard.textContent || '';
+                const isFollowing = Boolean(isUnfollowBtn) || text.includes('正在关注') || text.includes('Following');
+                const isNotFollowing = Boolean(isFollowBtn) || (text.includes('关注') && !text.includes('正在关注'));
+
+                if (isFollowing) {
+                  stateManager.set(username, { following: true, pending: false });
+                } else if (isNotFollowing) {
+                  stateManager.set(username, { following: false, pending: false });
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  // Fast silent Caret inspection fallback
+  async function peekCaretFollowState(tweetElement, username) {
+    const caret = tweetElement.querySelector('button[data-testid="caret"]');
+    if (!caret) return null;
+
+    document.body.classList.add('x-follow-silent-mode');
+    try {
+      triggerClick(caret);
+      let menu = null;
+      const start = Date.now();
+      while (Date.now() - start < 200) {
+        menu = document.querySelector('div[role="menu"], div[data-testid="Dropdown"]');
+        if (menu) break;
+        await sleep(20);
+      }
+
+      let result = null;
+      if (menu) {
+        const text = (menu.textContent || '').toLowerCase();
+        if (text.includes(`@${username}`)) {
+          if (text.includes('unfollow') || text.includes('取消关注')) {
+            result = true;
+          } else if (text.includes('follow') || text.includes('关注')) {
+            result = false;
+          }
+        }
+        triggerClick(caret); // Close menu
+      }
+      document.body.classList.remove('x-follow-silent-mode');
+      return result;
+    } catch (e) {
+      document.body.classList.remove('x-follow-silent-mode');
+      return null;
+    }
   }
 
   // ==========================================
@@ -532,7 +624,7 @@
   }
 
   // ==========================================
-  // 5. UI Component (Icon next to Grok)
+  // 5. UI Component (High-Recognition Icons)
   // ==========================================
   function injectStyles() {
     if (document.getElementById('x-followflow-styles')) return;
@@ -550,12 +642,14 @@
         transition: none !important;
       }
 
-      /* Container matching X action bar items */
+      /* Container */
       .x-followflow-container {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        margin: 0 4px;
         flex-shrink: 0;
+        vertical-align: middle;
       }
 
       /* Base Icon Button */
@@ -574,47 +668,54 @@
         position: relative;
       }
 
-      /* Circular hover background matching native X action buttons */
+      /* Circular Badge Frame: Clean 30x30px with subtle border */
       .x-followflow-icon-wrapper {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 34px;
-        height: 34px;
+        width: 30px;
+        height: 30px;
         border-radius: 9999px;
-        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
       }
 
-      /* Hover on NOT_FOLLOWING (+ Follow) */
+      /* Unfollowed (+): Subtle muted frame, blue hover */
+      .x-followflow-icon-btn.x-state-follow .x-followflow-icon-wrapper {
+        color: #71767b;
+        border-color: rgba(113, 118, 123, 0.3);
+        background-color: transparent;
+      }
       .x-followflow-icon-btn.x-state-follow:hover .x-followflow-icon-wrapper {
-        background-color: rgba(29, 155, 240, 0.1);
-        color: rgb(29, 155, 240);
-      }
-      .x-followflow-icon-btn.x-state-follow:hover {
-        color: rgb(29, 155, 240);
-      }
-
-      /* FOLLOWING: Subtle active blue/brand accent */
-      .x-followflow-icon-btn.x-state-following {
-        color: rgb(29, 155, 240);
-      }
-      .x-followflow-icon-btn.x-state-following:hover {
-        color: rgb(244, 33, 46);
-      }
-      .x-followflow-icon-btn.x-state-following:hover .x-followflow-icon-wrapper {
-        background-color: rgba(244, 33, 46, 0.1);
-      }
-
-      /* CONFIRMING UNFOLLOW: Red warning pulse */
-      .x-followflow-icon-btn.x-state-confirm {
-        color: rgb(244, 33, 46);
-      }
-      .x-followflow-icon-btn.x-state-confirm .x-followflow-icon-wrapper {
-        background-color: rgba(244, 33, 46, 0.15);
+        color: #1d9bf0;
+        border-color: #1d9bf0;
+        background-color: rgba(29, 155, 240, 0.12);
         transform: scale(1.08);
       }
 
-      /* LOADING SPINNER */
+      /* Followed (✓): Distinctive High-Recognition Verified/Checkmark Green/Blue */
+      .x-followflow-icon-btn.x-state-following .x-followflow-icon-wrapper {
+        color: #00ba7c;
+        border-color: rgba(0, 186, 124, 0.4);
+        background-color: rgba(0, 186, 124, 0.08);
+      }
+      .x-followflow-icon-btn.x-state-following:hover .x-followflow-icon-wrapper {
+        color: #f4212e;
+        border-color: #f4212e;
+        background-color: rgba(244, 33, 46, 0.12);
+        transform: scale(1.08);
+      }
+
+      /* Confirming Unfollow (−): Bold Red Alert */
+      .x-followflow-icon-btn.x-state-confirm .x-followflow-icon-wrapper {
+        color: #ffffff;
+        border-color: #f4212e;
+        background-color: #f4212e;
+        transform: scale(1.12);
+        box-shadow: 0 0 8px rgba(244, 33, 46, 0.4);
+      }
+
+      /* Loading */
       .x-followflow-icon-btn.x-state-loading {
         cursor: wait;
         opacity: 0.7;
@@ -628,18 +729,17 @@
         to { transform: rotate(360deg); }
       }
 
-      /* FAILED */
-      .x-followflow-icon-btn.x-state-failed {
-        color: rgb(244, 33, 46);
-      }
+      /* Failed */
       .x-followflow-icon-btn.x-state-failed .x-followflow-icon-wrapper {
+        color: #f4212e;
+        border-color: #f4212e;
         background-color: rgba(244, 33, 46, 0.15);
       }
 
-      /* PENDING */
-      .x-followflow-icon-btn.x-state-pending {
+      /* Pending */
+      .x-followflow-icon-btn.x-state-pending .x-followflow-icon-wrapper {
         color: #71767b;
-        cursor: default;
+        border-color: #71767b;
       }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -668,27 +768,27 @@
       if (currentState === 'NOT_FOLLOWING') {
         btn.classList.add('x-state-follow');
         wrapper.innerHTML = ICONS.follow;
-        btn.title = `Follow @${username}`;
+        btn.title = `+ 关注 @${username}`;
       } else if (currentState === 'FOLLOWING') {
         btn.classList.add('x-state-following');
         wrapper.innerHTML = ICONS.following;
-        btn.title = `Following @${username} (Click to unfollow)`;
+        btn.title = `✓ 正在关注 @${username} (点击可取消关注)`;
       } else if (currentState === 'CONFIRMING_UNFOLLOW') {
         btn.classList.add('x-state-confirm');
         wrapper.innerHTML = ICONS.unfollowConfirm;
-        btn.title = `Click again to confirm unfollow @${username}`;
+        btn.title = `再次点击确认取消关注 @${username}`;
       } else if (currentState === 'LOADING') {
         btn.classList.add('x-state-loading');
         wrapper.innerHTML = ICONS.loading;
-        btn.title = 'Processing...';
+        btn.title = '处理中...';
       } else if (currentState === 'FAILED') {
         btn.classList.add('x-state-failed');
         wrapper.innerHTML = ICONS.failed;
-        btn.title = 'Action failed';
+        btn.title = '操作失败';
       } else if (currentState === 'PENDING') {
         btn.classList.add('x-state-pending');
         wrapper.innerHTML = ICONS.pending;
-        btn.title = 'Follow request pending';
+        btn.title = '已发送关注请求 (等待通过)';
       }
     }
 
@@ -786,24 +886,38 @@
   // 6. Placement & Mutation Observer
   // ==========================================
   function insertFollowIcon(tweetArticle, buttonContainer) {
-    // 1. Primary: Locate Grok button in tweet
+    // 1. Look for Grok button in tweet header or action bar
     const grokBtn = tweetArticle.querySelector('button[aria-label*="grok" i], [data-testid*="grok" i]');
     if (grokBtn) {
       let grokWrapper = grokBtn;
-      if (grokBtn.parentElement && grokBtn.parentElement.getAttribute('role') !== 'group') {
-        grokWrapper = grokBtn.parentElement;
+      while (grokWrapper.parentElement && !grokWrapper.parentElement.matches('div[role="group"], div[data-testid="User-Name"]')) {
+        grokWrapper = grokWrapper.parentElement;
       }
       if (grokWrapper.parentElement) {
-        // Place right beside Grok
         grokWrapper.parentElement.insertBefore(buttonContainer, grokWrapper);
         return;
       }
     }
 
-    // 2. Secondary: Locate action bar (div[role="group"])
+    // 2. Look for Header Caret button (top-right next to ...)
+    const caret = tweetArticle.querySelector('button[data-testid="caret"]');
+    if (caret) {
+      let caretWrapper = caret;
+      const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
+      if (userNameEl) {
+        while (caretWrapper.parentElement && caretWrapper.parentElement !== userNameEl) {
+          caretWrapper = caretWrapper.parentElement;
+        }
+        if (caretWrapper.parentElement === userNameEl) {
+          userNameEl.insertBefore(buttonContainer, caretWrapper);
+          return;
+        }
+      }
+    }
+
+    // 3. Fallback: Action bar (div[role="group"])
     const actionBar = tweetArticle.querySelector('div[role="group"]');
     if (actionBar) {
-      // Place next to Bookmark
       const bookmark = actionBar.querySelector('[data-testid="bookmark"], [data-testid="removeBookmark"]');
       if (bookmark) {
         let bWrapper = bookmark;
@@ -817,42 +931,18 @@
         }
         return;
       }
-
-      // Or right before Share
-      const share = actionBar.querySelector('button[data-testid="share"], [aria-label*="share" i]');
-      if (share) {
-        let sWrapper = share;
-        if (share.parentElement && share.parentElement !== actionBar) {
-          sWrapper = share.parentElement;
-        }
-        actionBar.insertBefore(buttonContainer, sWrapper);
-        return;
-      }
-
       actionBar.appendChild(buttonContainer);
       return;
     }
 
-    // 3. Fallback to User-Name area if action bar not yet mounted
+    // 4. Default: User-Name container
     const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
     if (userNameEl) {
-      const caret = userNameEl.querySelector('button[data-testid="caret"]');
-      if (caret) {
-        let caretContainer = caret;
-        while (caretContainer && caretContainer.parentElement !== userNameEl) {
-          caretContainer = caretContainer.parentElement;
-        }
-        if (caretContainer && caretContainer.parentElement === userNameEl) {
-          userNameEl.insertBefore(buttonContainer, caretContainer);
-          return;
-        }
-      }
-      const firstRow = userNameEl.firstElementChild || userNameEl;
-      firstRow.appendChild(buttonContainer);
+      userNameEl.appendChild(buttonContainer);
     }
   }
 
-  function processTweet(tweetArticle) {
+  async function processTweet(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
 
     const author = extractUsernameFromTweet(tweetArticle);
@@ -868,7 +958,7 @@
     const existingContainer = tweetArticle.querySelector('.x-followflow-container');
     if (existingContainer) {
       if (existingContainer.getAttribute('data-x-author') === author) {
-        return; // Already present
+        return;
       }
       if (existingContainer._unsubscribe) existingContainer._unsubscribe();
       existingContainer.remove();
@@ -887,7 +977,7 @@
       resolved = true;
     }
 
-    // B. Check React Tree / Fiber
+    // B. Check React Tree / Fiber for this exact author
     if (!resolved) {
       const inspected = inspectFollowState(tweetArticle, author);
       if (inspected && inspected.following !== undefined) {
@@ -908,18 +998,31 @@
     const buttonContainer = createFollowIconButton(tweetArticle, author, following, pending);
     insertFollowIcon(tweetArticle, buttonContainer);
 
-    // If unresolved, schedule a micro-check after React finishes mounting subcomponents
+    // D. If still not resolved with 100% confidence, run silent peek
     if (!resolved) {
-      setTimeout(() => {
+      setTimeout(async () => {
         if (!tweetArticle.isConnected) return;
-        const recheck = stateManager.get(author) || inspectFollowState(tweetArticle, author);
-        if (recheck && recheck.following !== undefined) {
-          stateManager.set(author, recheck);
-          if (buttonContainer._updateState) {
-            buttonContainer._updateState(recheck.following, recheck.pending);
+        let finalState = stateManager.get(author);
+        if (!finalState) {
+          const recheck = inspectFollowState(tweetArticle, author);
+          if (recheck && recheck.following !== undefined) {
+            finalState = recheck;
+          } else {
+            // Run silent Caret peek ground truth check
+            const peeked = await peekCaretFollowState(tweetArticle, author);
+            if (peeked !== null) {
+              finalState = { following: peeked, pending: false };
+            }
           }
         }
-      }, 250);
+
+        if (finalState && finalState.following !== undefined) {
+          stateManager.set(author, finalState);
+          if (buttonContainer._updateState) {
+            buttonContainer._updateState(finalState.following, finalState.pending);
+          }
+        }
+      }, 100);
     }
   }
 
@@ -1000,6 +1103,7 @@
 
     const startDOM = () => {
       injectStyles();
+      initHoverCardObserver();
       initObserver();
       scheduleScan();
     };
