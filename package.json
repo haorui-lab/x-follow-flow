@@ -1,0 +1,20 @@
+{
+  "name": "my-x-helper",
+  "version": "0.1.0",
+  "description": "Tampermonkey / Violentmonkey userscript for X (Twitter) timeline Follow and Unfollow",
+  "type": "module",
+  "scripts": {
+    "test": "node test/userscript.test.js"
+  },
+  "keywords": [
+    "userscript",
+    "tampermonkey",
+    "violentmonkey",
+    "twitter",
+    "x",
+    "timeline",
+    "follow"
+  ],
+  "author": "myXHelper",
+  "license": "MIT"
+}
