@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.0
+// @version      0.5.1
 // @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with 2-step confirmation and instant state sync.
 // @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
@@ -688,9 +688,9 @@
         color: #1d9bf0;
       }
 
-      /* FOLLOWING (✓): Vibrant Twitter Blue, turns Red on hover */
+      /* FOLLOWING (✓): Neutral gray matching (+), turns Red on hover when (−) appears */
       .x-followflow-icon-btn.x-state-following {
-        color: #1d9bf0;
+        color: #71767b;
       }
       .x-followflow-icon-btn.x-state-following .x-icon-normal {
         display: inline-flex;

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.4.0-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.1-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-支持-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-支持-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -51,7 +51,7 @@
 | 状态 | 图标符号 | 视觉表现 | 交互行为 |
 | :--- | :---: | :--- | :--- |
 | **未关注** | `+` | 中性灰色加号，悬浮显示 Twitter 经典蓝圈 | 点击立即 **关注** |
-| **已关注** | `✓` | 高亮 Twitter 品牌蓝（`#1d9bf0`）对勾 | 点击启动 **防误触确认** |
+| **已关注** | `✓` | 中性灰色对勾（与原生图标一致，悬浮变红色 `−` 提示） | 点击启动 **防误触确认** |
 | **确认中** | `−` | 告警红色（`#f4212e`）减号，伴随微呼吸动画 | 3秒内再次点击 **取关**；超时自动复原 |
 | **处理中** | ⟳ | 原生平滑旋转 Spinner | 禁用防连击 |
 
