@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.3.0
-// @description  Add high-recognition Follow / Unfollow icon button directly next to Grok on X timelines (For You, Following, Search, etc.) with 2-step confirmation and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线 Grok 图标旁增加高辨识度关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
+// @version      0.4.0
+// @description  Add minimalist native-style Follow / Unfollow icon button directly to the left of the Bookmark button on X timelines with 2-step confirmation and instant state sync.
+// @description:zh-CN 在 X (Twitter) 时间线书签按钮左侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -29,44 +29,44 @@
     maxCaretWaitMs: 800
   };
 
-  // High-Recognition Crisp SVG Icons (+ / ✓ / −)
+  // High-Recognition Crisp SVG Icons (+ / ✓ / −) without outer borders
   const ICONS = {
-    // Sharp Bold Plus (+): Unfollowed state
+    // Pure, sleek Plus (+) for Follow
     follow: `
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="19"></line>
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
-    // Sharp Bold Checkmark (✓): Followed state
+    // Pure, sleek Checkmark (✓) for Following
     following: `
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
     `,
-    // Sharp Bold Minus (−): Unfollow confirmation state
+    // Pure, sleek Minus (−) for Confirming Unfollow
     unfollowConfirm: `
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
-    // Loading spinner
+    // Native-like Spinner
     loading: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" class="x-follow-spinner">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" class="x-follow-spinner">
         <circle cx="12" cy="12" r="9" stroke-opacity="0.25"/>
         <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
       </svg>
     `,
-    // Failed indicator
+    // Error indicator
     failed: `
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     `,
     // Pending clock
     pending: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="12" cy="12" r="9"/>
         <polyline points="12 7 12 12 15 15"/>
       </svg>
@@ -183,7 +183,6 @@
     if (!win || win.__x_follow_network_hooked) return;
     win.__x_follow_network_hooked = true;
 
-    // Check window.__INITIAL_STATE__
     if (win.__INITIAL_STATE__) {
       try {
         extractUsersFromData(win.__INITIAL_STATE__);
@@ -303,7 +302,6 @@
     return null;
   }
 
-  // Searches React Props & State specifically matching targetAuthor
   function searchReactTreeForUser(obj, targetAuthor, depth = 0, visited = new WeakSet()) {
     if (!obj || typeof obj !== 'object' || depth > 10) return null;
     if (visited.has(obj)) return null;
@@ -314,7 +312,6 @@
     const rel = obj.relationship_perspectives;
     const screenName = (legacy?.screen_name || obj.screen_name || '').toLowerCase();
 
-    // ONLY match if screenName matches targetAuthor
     if (screenName && screenName === target) {
       let following = undefined;
       if (rel && rel.following !== undefined) {
@@ -337,7 +334,6 @@
       }
     }
 
-    // Check Caret menu actions specifically for targetAuthor
     if (Array.isArray(obj)) {
       for (const item of obj) {
         if (item && typeof item === 'object') {
@@ -367,7 +363,6 @@
   function inspectFollowState(tweetArticle, author) {
     if (!tweetArticle || !author) return null;
 
-    // 1. Inspect elements specifically bound to author
     const authorLinks = tweetArticle.querySelectorAll(`a[href="/${author}" i], a[href^="/${author}?" i]`);
     const caret = tweetArticle.querySelector('button[data-testid="caret"]');
     const avatarEl = tweetArticle.querySelector('div[data-testid="Tweet-User-Avatar"]');
@@ -403,7 +398,6 @@
     return null;
   }
 
-  // 4. HoverCard Observer: Auto-captures ground truth when hovercard opens
   function initHoverCardObserver() {
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
@@ -440,7 +434,6 @@
     });
   }
 
-  // Fast silent Caret inspection fallback
   async function peekCaretFollowState(tweetElement, username) {
     const caret = tweetElement.querySelector('button[data-testid="caret"]');
     if (!caret) return null;
@@ -466,7 +459,7 @@
             result = false;
           }
         }
-        triggerClick(caret); // Close menu
+        triggerClick(caret);
       }
       document.body.classList.remove('x-follow-silent-mode');
       return result;
@@ -624,7 +617,7 @@
   }
 
   // ==========================================
-  // 5. UI Component (High-Recognition Icons)
+  // 5. UI Component (Border-Free Native Icon Style)
   // ==========================================
   function injectStyles() {
     if (document.getElementById('x-followflow-styles')) return;
@@ -642,17 +635,16 @@
         transition: none !important;
       }
 
-      /* Container */
+      /* Container inside X action bar (div[role="group"]) */
       .x-followflow-container {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin: 0 4px;
         flex-shrink: 0;
-        vertical-align: middle;
+        user-select: none;
       }
 
-      /* Base Icon Button */
+      /* Base Icon Button: Exactly matching native action bar button (no outer border) */
       .x-followflow-icon-btn {
         background: transparent;
         border: none;
@@ -668,54 +660,67 @@
         position: relative;
       }
 
-      /* Circular Badge Frame: Clean 30x30px with subtle border */
+      /* Circular hover background matches Twitter's 34x34px round hover button */
       .x-followflow-icon-wrapper {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 30px;
-        height: 30px;
+        width: 34px;
+        height: 34px;
         border-radius: 9999px;
-        transition: all 0.2s ease;
-        border: 1px solid transparent;
+        background: transparent;
+        border: none;
+        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
       }
 
-      /* Unfollowed (+): Subtle muted frame, blue hover */
-      .x-followflow-icon-btn.x-state-follow .x-followflow-icon-wrapper {
+      /* NOT_FOLLOWING (+): Neutral gray icon, Twitter blue hover circle */
+      .x-followflow-icon-btn.x-state-follow {
         color: #71767b;
-        border-color: rgba(113, 118, 123, 0.3);
-        background-color: transparent;
       }
       .x-followflow-icon-btn.x-state-follow:hover .x-followflow-icon-wrapper {
+        background-color: rgba(29, 155, 240, 0.1);
         color: #1d9bf0;
-        border-color: #1d9bf0;
-        background-color: rgba(29, 155, 240, 0.12);
-        transform: scale(1.08);
+      }
+      .x-followflow-icon-btn.x-state-follow:hover {
+        color: #1d9bf0;
       }
 
-      /* Followed (✓): Distinctive High-Recognition Verified/Checkmark Green/Blue */
-      .x-followflow-icon-btn.x-state-following .x-followflow-icon-wrapper {
-        color: #00ba7c;
-        border-color: rgba(0, 186, 124, 0.4);
-        background-color: rgba(0, 186, 124, 0.08);
+      /* FOLLOWING (✓): Vibrant Twitter Blue, turns Red on hover */
+      .x-followflow-icon-btn.x-state-following {
+        color: #1d9bf0;
+      }
+      .x-followflow-icon-btn.x-state-following .x-icon-hover {
+        display: none;
+      }
+      .x-followflow-icon-btn.x-state-following:hover .x-icon-normal {
+        display: none;
+      }
+      .x-followflow-icon-btn.x-state-following:hover .x-icon-hover {
+        display: inline-flex;
       }
       .x-followflow-icon-btn.x-state-following:hover .x-followflow-icon-wrapper {
+        background-color: rgba(244, 33, 46, 0.1);
         color: #f4212e;
-        border-color: #f4212e;
-        background-color: rgba(244, 33, 46, 0.12);
-        transform: scale(1.08);
+      }
+      .x-followflow-icon-btn.x-state-following:hover {
+        color: #f4212e;
       }
 
-      /* Confirming Unfollow (−): Bold Red Alert */
+      /* CONFIRMING UNFOLLOW (−): Red warning with subtle red hover circle */
+      .x-followflow-icon-btn.x-state-confirm {
+        color: #f4212e;
+      }
       .x-followflow-icon-btn.x-state-confirm .x-followflow-icon-wrapper {
-        color: #ffffff;
-        border-color: #f4212e;
-        background-color: #f4212e;
-        transform: scale(1.12);
-        box-shadow: 0 0 8px rgba(244, 33, 46, 0.4);
+        background-color: rgba(244, 33, 46, 0.15);
+        color: #f4212e;
+        animation: x-follow-pulse 1s infinite alternate;
+      }
+      @keyframes x-follow-pulse {
+        from { transform: scale(1); }
+        to { transform: scale(1.08); }
       }
 
-      /* Loading */
+      /* LOADING SPINNER */
       .x-followflow-icon-btn.x-state-loading {
         cursor: wait;
         opacity: 0.7;
@@ -729,17 +734,17 @@
         to { transform: rotate(360deg); }
       }
 
-      /* Failed */
-      .x-followflow-icon-btn.x-state-failed .x-followflow-icon-wrapper {
+      /* FAILED */
+      .x-followflow-icon-btn.x-state-failed {
         color: #f4212e;
-        border-color: #f4212e;
+      }
+      .x-followflow-icon-btn.x-state-failed .x-followflow-icon-wrapper {
         background-color: rgba(244, 33, 46, 0.15);
       }
 
-      /* Pending */
-      .x-followflow-icon-btn.x-state-pending .x-followflow-icon-wrapper {
+      /* PENDING */
+      .x-followflow-icon-btn.x-state-pending {
         color: #71767b;
-        border-color: #71767b;
       }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -764,6 +769,7 @@
 
     function renderUI() {
       btn.className = 'x-followflow-icon-btn';
+      wrapper.innerHTML = '';
 
       if (currentState === 'NOT_FOLLOWING') {
         btn.classList.add('x-state-follow');
@@ -771,7 +777,17 @@
         btn.title = `+ 关注 @${username}`;
       } else if (currentState === 'FOLLOWING') {
         btn.classList.add('x-state-following');
-        wrapper.innerHTML = ICONS.following;
+        // Normal state: Checkmark (✓); Hover state: Minus (−)
+        const normalSpan = document.createElement('span');
+        normalSpan.className = 'x-icon-normal';
+        normalSpan.innerHTML = ICONS.following;
+
+        const hoverSpan = document.createElement('span');
+        hoverSpan.className = 'x-icon-hover';
+        hoverSpan.innerHTML = ICONS.unfollowConfirm;
+
+        wrapper.appendChild(normalSpan);
+        wrapper.appendChild(hoverSpan);
         btn.title = `✓ 正在关注 @${username} (点击可取消关注)`;
       } else if (currentState === 'CONFIRMING_UNFOLLOW') {
         btn.classList.add('x-state-confirm');
@@ -883,28 +899,62 @@
   }
 
   // ==========================================
-  // 6. Placement & Mutation Observer
+  // 6. Placement (Directly to the LEFT of Bookmark)
   // ==========================================
   function insertFollowIcon(tweetArticle, buttonContainer) {
-    // 1. Look for Grok button in tweet header or action bar
-    const grokBtn = tweetArticle.querySelector('button[aria-label*="grok" i], [data-testid*="grok" i]');
-    if (grokBtn) {
-      let grokWrapper = grokBtn;
-      while (grokWrapper.parentElement && !grokWrapper.parentElement.matches('div[role="group"], div[data-testid="User-Name"]')) {
-        grokWrapper = grokWrapper.parentElement;
+    // 1. Primary target: div[role="group"] (Bottom action bar) directly before Bookmark
+    const actionBar = tweetArticle.querySelector('div[role="group"]');
+    if (actionBar) {
+      // Find Bookmark button
+      const bookmark = actionBar.querySelector('button[data-testid="bookmark"], button[data-testid="removeBookmark"], [aria-label*="bookmark" i], [aria-label*="书签" i]');
+      if (bookmark) {
+        let bWrapper = bookmark;
+        while (bWrapper.parentElement && bWrapper.parentElement !== actionBar) {
+          bWrapper = bWrapper.parentElement;
+        }
+        if (bWrapper.parentElement === actionBar) {
+          // Insert directly to the LEFT of the Bookmark wrapper!
+          actionBar.insertBefore(buttonContainer, bWrapper);
+          return;
+        }
       }
-      if (grokWrapper.parentElement) {
-        grokWrapper.parentElement.insertBefore(buttonContainer, grokWrapper);
-        return;
+
+      // If Bookmark is not found, check Grok button
+      const grokBtn = actionBar.querySelector('button[aria-label*="grok" i], [data-testid*="grok" i]');
+      if (grokBtn) {
+        let gWrapper = grokBtn;
+        while (gWrapper.parentElement && gWrapper.parentElement !== actionBar) {
+          gWrapper = gWrapper.parentElement;
+        }
+        if (gWrapper.parentElement === actionBar) {
+          actionBar.insertBefore(buttonContainer, gWrapper);
+          return;
+        }
       }
+
+      // If neither, check Share button
+      const share = actionBar.querySelector('button[data-testid="share"], [aria-label*="share" i], [aria-label*="分享" i]');
+      if (share) {
+        let sWrapper = share;
+        while (sWrapper.parentElement && sWrapper.parentElement !== actionBar) {
+          sWrapper = sWrapper.parentElement;
+        }
+        if (sWrapper.parentElement === actionBar) {
+          actionBar.insertBefore(buttonContainer, sWrapper);
+          return;
+        }
+      }
+
+      actionBar.appendChild(buttonContainer);
+      return;
     }
 
-    // 2. Look for Header Caret button (top-right next to ...)
-    const caret = tweetArticle.querySelector('button[data-testid="caret"]');
-    if (caret) {
-      let caretWrapper = caret;
-      const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
-      if (userNameEl) {
+    // 2. Fallback to User-Name area if action bar not yet mounted
+    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
+    if (userNameEl) {
+      const caret = userNameEl.querySelector('button[data-testid="caret"]');
+      if (caret) {
+        let caretWrapper = caret;
         while (caretWrapper.parentElement && caretWrapper.parentElement !== userNameEl) {
           caretWrapper = caretWrapper.parentElement;
         }
@@ -913,31 +963,6 @@
           return;
         }
       }
-    }
-
-    // 3. Fallback: Action bar (div[role="group"])
-    const actionBar = tweetArticle.querySelector('div[role="group"]');
-    if (actionBar) {
-      const bookmark = actionBar.querySelector('[data-testid="bookmark"], [data-testid="removeBookmark"]');
-      if (bookmark) {
-        let bWrapper = bookmark;
-        if (bookmark.parentElement && bookmark.parentElement !== actionBar) {
-          bWrapper = bookmark.parentElement;
-        }
-        if (bWrapper.nextSibling) {
-          actionBar.insertBefore(buttonContainer, bWrapper.nextSibling);
-        } else {
-          actionBar.appendChild(buttonContainer);
-        }
-        return;
-      }
-      actionBar.appendChild(buttonContainer);
-      return;
-    }
-
-    // 4. Default: User-Name container
-    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
-    if (userNameEl) {
       userNameEl.appendChild(buttonContainer);
     }
   }
@@ -1008,7 +1033,6 @@
           if (recheck && recheck.following !== undefined) {
             finalState = recheck;
           } else {
-            // Run silent Caret peek ground truth check
             const peeked = await peekCaretFollowState(tweetArticle, author);
             if (peeked !== null) {
               finalState = { following: peeked, pending: false };
