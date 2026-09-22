@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.4.0
+// @version      0.4.1
 // @description  Add minimalist native-style Follow / Unfollow icon button directly to the left of the Bookmark button on X timelines with 2-step confirmation and instant state sync.
 // @description:zh-CN 在 X (Twitter) 时间线书签按钮左侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
@@ -38,10 +38,10 @@
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
-    // Pure, sleek Checkmark (✓) for Following
+    // Pure, sleek Checkmark (✓) for Following (optically balanced with native Bookmark)
     following: `
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"></polyline>
+        <polyline points="20 7.5 9 18.5 4 13.5"></polyline>
       </svg>
     `,
     // Pure, sleek Minus (−) for Confirming Unfollow
@@ -672,6 +672,9 @@
         border: none;
         transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
       }
+      .x-followflow-icon-wrapper svg {
+        display: block;
+      }
 
       /* NOT_FOLLOWING (+): Neutral gray icon, Twitter blue hover circle */
       .x-followflow-icon-btn.x-state-follow {
@@ -689,8 +692,17 @@
       .x-followflow-icon-btn.x-state-following {
         color: #1d9bf0;
       }
+      .x-followflow-icon-btn.x-state-following .x-icon-normal {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 0;
+      }
       .x-followflow-icon-btn.x-state-following .x-icon-hover {
         display: none;
+        align-items: center;
+        justify-content: center;
+        line-height: 0;
       }
       .x-followflow-icon-btn.x-state-following:hover .x-icon-normal {
         display: none;
