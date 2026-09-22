@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.4.1
-// @description  Add minimalist native-style Follow / Unfollow icon button directly to the left of the Bookmark button on X timelines with 2-step confirmation and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线书签按钮左侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
+// @version      0.5.0
+// @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with 2-step confirmation and instant state sync.
+// @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -911,13 +911,31 @@
   }
 
   // ==========================================
-  // 6. Placement (Directly to the LEFT of Bookmark)
+  // 6. Placement (Directly to the RIGHT of Share)
   // ==========================================
   function insertFollowIcon(tweetArticle, buttonContainer) {
-    // 1. Primary target: div[role="group"] (Bottom action bar) directly before Bookmark
+    // 1. Primary target: div[role="group"] (Bottom action bar) directly to the RIGHT of Share button
     const actionBar = tweetArticle.querySelector('div[role="group"]');
     if (actionBar) {
-      // Find Bookmark button
+      // Find Share button
+      const share = actionBar.querySelector('button[data-testid="share"], button[data-testid*="share" i], [aria-label*="share" i], [aria-label*="分享" i]');
+      if (share) {
+        let sWrapper = share;
+        while (sWrapper.parentElement && sWrapper.parentElement !== actionBar) {
+          sWrapper = sWrapper.parentElement;
+        }
+        if (sWrapper.parentElement === actionBar) {
+          // Insert directly to the RIGHT of the Share wrapper!
+          if (sWrapper.nextSibling) {
+            actionBar.insertBefore(buttonContainer, sWrapper.nextSibling);
+          } else {
+            actionBar.appendChild(buttonContainer);
+          }
+          return;
+        }
+      }
+
+      // Fallback 1: check Bookmark button (insert to its right)
       const bookmark = actionBar.querySelector('button[data-testid="bookmark"], button[data-testid="removeBookmark"], [aria-label*="bookmark" i], [aria-label*="书签" i]');
       if (bookmark) {
         let bWrapper = bookmark;
@@ -925,13 +943,16 @@
           bWrapper = bWrapper.parentElement;
         }
         if (bWrapper.parentElement === actionBar) {
-          // Insert directly to the LEFT of the Bookmark wrapper!
-          actionBar.insertBefore(buttonContainer, bWrapper);
+          if (bWrapper.nextSibling) {
+            actionBar.insertBefore(buttonContainer, bWrapper.nextSibling);
+          } else {
+            actionBar.appendChild(buttonContainer);
+          }
           return;
         }
       }
 
-      // If Bookmark is not found, check Grok button
+      // Fallback 2: check Grok button (insert to its right)
       const grokBtn = actionBar.querySelector('button[aria-label*="grok" i], [data-testid*="grok" i]');
       if (grokBtn) {
         let gWrapper = grokBtn;
@@ -939,24 +960,16 @@
           gWrapper = gWrapper.parentElement;
         }
         if (gWrapper.parentElement === actionBar) {
-          actionBar.insertBefore(buttonContainer, gWrapper);
+          if (gWrapper.nextSibling) {
+            actionBar.insertBefore(buttonContainer, gWrapper.nextSibling);
+          } else {
+            actionBar.appendChild(buttonContainer);
+          }
           return;
         }
       }
 
-      // If neither, check Share button
-      const share = actionBar.querySelector('button[data-testid="share"], [aria-label*="share" i], [aria-label*="分享" i]');
-      if (share) {
-        let sWrapper = share;
-        while (sWrapper.parentElement && sWrapper.parentElement !== actionBar) {
-          sWrapper = sWrapper.parentElement;
-        }
-        if (sWrapper.parentElement === actionBar) {
-          actionBar.insertBefore(buttonContainer, sWrapper);
-          return;
-        }
-      }
-
+      // Fallback 3: append to end of action bar (rightmost position)
       actionBar.appendChild(buttonContainer);
       return;
     }

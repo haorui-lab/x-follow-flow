@@ -24,13 +24,13 @@ Browsing X's **For You** feed is one of the primary ways to discover new creator
 1. Hovering and waiting for a sluggish hover card to load, or
 2. Clicking into the author's profile, navigating away from your reading position.
 
-**X FollowFlow** solves this single problem with extreme elegance: it seamlessly injects a native-style, borderless icon button **directly to the left of the Bookmark button** on every tweet.
+**X FollowFlow** solves this single problem with extreme elegance: it seamlessly injects a native-style, borderless icon button **directly to the right of the Share button** on every tweet.
 
 ---
 
 ## ✨ Features
 
-- 🎯 **Native Look & Feel**: Borderless icon button embedded cleanly in the bottom action bar (`Reply` · `Repost` · `Like` · `Views` · **`FollowFlow`** · `Bookmark` · `Grok` · `Share`).
+- 🎯 **Native Look & Feel**: Borderless icon button embedded cleanly in the bottom action bar (`Reply` · `Repost` · `Like` · `Views` · `Bookmark` · `Grok` · `Share` · **`FollowFlow`**).
 - ⚡ **Accurate Status Detection**:
   - Deep inspection of X's modern `relationship_perspectives.following` GraphQL schema.
   - Multi-layered React Fiber & Caret menu action tree verification.
