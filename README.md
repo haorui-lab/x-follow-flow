@@ -1,6 +1,7 @@
 # X FollowFlow (x-follow-flow)
 
-> 面向 **x.com** (Twitter) 的轻量级浏览器用户脚本（Userscript），在时间线中直接显示作者关注状态并就地 Follow / Unfollow，无感丝滑、防误触。  
+> 面向 **x.com** (Twitter) 的极简、轻量浏览器用户脚本（Userscript）。  
+> 在推文操作栏 **Grok 图标旁** 内联显示关注/取关 Icon 按钮，无需跳转作者主页，丝滑就地操作，自带防误触二次确认。  
 > 优先支持 **Tampermonkey** 与 **Violentmonkey**。
 
 ---
@@ -8,22 +9,24 @@
 ## 🌟 核心功能
 
 在 X 的时间线（推荐流 For You、关注流 Following、搜索流、详情页等）中：
-* **实时显示关注状态**：每条推文作者栏直接显示当前关注状态（`+ Follow` / `✓ Following`）。
-* **一键关注 (Follow)**：未关注时点击 `+ Follow` 立即关注，瞬间变为 `✓ Following`，无需刷新或跳转个人主页。
+* **原生 Grok 旁 Icon 位置**：以极简的圆形 Icon 按钮形式呈现在推文操作栏（Reply / Repost / Like / Views / Bookmark / **FollowFlow** / Grok / Share），完全融入 X 原生 UI，不占用作者栏空间，不高突显眼。
+* **精准识别关注状态**：
+  * 支持 X 现代 GraphQL `relationship_perspectives.following` 深度解析；
+  * 具备 React Props/Fiber 与原生 Caret 菜单动作树深度穿透校验；
+  * 准确区分已关注与未关注，绝不误标。
+* **一键关注 (Follow)**：
+  * 未关注时显示添加关注 Icon（`person_add`）；
+  * 点击立即关注，即刻切换为高亮已关注状态，无需刷新页面。
 * **防误触取消关注 (Unfollow)**：
-  * 第一次点击：`✓ Following` 变为红框警示的 `Unfollow?`，启动 3 秒防误触倒计时；
-  * 第二次点击：在 `Unfollow?` 状态下再次点击方才执行取关，避免手滑误触；
-  * 超时恢复：3 秒内未二次点击，自动恢复为 `✓ Following`。
-* **多卡片实时状态同步**：页面中若出现同一作者的多条推文，操作其中任意一条，其余推文的关注按钮将实时联动同步更新。
+  * 已关注时显示已关注 Icon（`person_check`）；
+  * 第一次点击：Icon 变为红色警示的取关 Icon（`person_remove`），启动 3 秒防误触倒计时；
+  * 第二次点击：倒计时内再次点击方才真正取消关注，彻底避免误触；
+  * 超时恢复：3 秒内未二次点击自动恢复为已关注状态。
+* **全屏多卡片实时同步**：页面中若出现同一作者的多条推文，操作其中任意一条，其余所有推文中的关注 Icon 将同步更新。
 * **智能过滤本人**：自动识别当前登录账号，当前登录用户自己的推文不会显示按钮。
-* **原生视觉风格与主题自适应**：
-  * 紧凑药丸按钮（Pill Button），放置于推文作者栏头部（`@username · 时间戳` 旁）；
-  * 完美适配 X 的 **深色模式 (Dark)**、**暗灰模式 (Dim)** 与 **浅色模式 (Light)**；
-  * 阻止点击事件冒泡，绝不触发跳转推文详情页。
 * **极致性能与无感加载**：
-  * **网络层响应解析**：启动时自动监听 X 本身的 Timeline GraphQL 接口，在推文渲染前即可取得关系数据，零额外请求、零界面闪烁；
-  * **React Fiber 兜底**：直接读取推文 DOM 的 Fiber 节点状态，应对页面缓存；
-  * **虚拟滚动防重**：防抖监听 DOM Mutation，滚动流畅，自动适应 DOM 回收机制。
+  * 启动阶段监听 X 原生 Timeline 响应，在推文渲染前即可取得关系数据，零额外请求；
+  * 采用防抖 MutationObserver，高效支持 SPA 动态路由与虚拟无限滚动。
 * **优先复用 X 原生行为**：
   * 默认通过无感触发原生推文 Caret 菜单完成操作，X 原生逻辑自行发起签名请求；
   * 自带 X 会话接口降级机制，极端情况下自动补全请求。
@@ -72,23 +75,13 @@
 
 ## ⚙️ 个性化配置
 
-脚本顶部提供了直观的 `CONFIG` 配置项，若您希望使用中文界面或调整超时时间，只需在脚本前段修改：
+脚本顶部提供了直观的 `CONFIG` 配置项：
 
 ```javascript
 const CONFIG = {
-  labels: {
-    follow: '+ 关注',               // 默认: '+ Follow'
-    following: '✓ 已关注',           // 默认: '✓ Following'
-    followingHover: '取消关注',      // 默认: 'Unfollow'
-    unfollowConfirm: '取消关注？',    // 默认: 'Unfollow?'
-    loadingFollow: '关注中...',      // 默认: 'Following...'
-    loadingUnfollow: '取关中...',    // 默认: 'Unfollowing...'
-    failed: '失败',                 // 默认: 'Failed'
-    pending: '等待确认'              // 默认: 'Pending'
-  },
-  confirmTimeoutMs: 3000,           // 防误触倒计时（毫秒）
-  scanDebounceMs: 50,               // 滚动防抖间隔（毫秒）
-  maxCaretWaitMs: 800               // 原生菜单等待超时
+  confirmTimeoutMs: 3000,           // 取消关注防误触倒计时（毫秒）
+  scanDebounceMs: 50,               // 滚动防抖扫描间隔（毫秒）
+  maxCaretWaitMs: 800               // 原生菜单等待超时（毫秒）
 };
 ```
 
@@ -112,8 +105,8 @@ const CONFIG = {
 │                          │ 驱动更新                      │
 │                          ▼                               │
 │   ┌──────────────────────────────────────────────────┐   │
-│   │         UI Component (推文作者栏按钮注入)        │   │
-│   │  [+ Follow] ⇄ [✓ Following] ⇄ [Unfollow?] (3s)  │   │
+│   │       UI Component (Grok 图标旁 Icon 注入)       │   │
+│   │     [Person+] ⇄ [Person✓] ⇄ [Person- 确认]       │   │
 │   └──────────────────────┬───────────────────────────┘   │
 │                          │ 用户点击触发                  │
 │                          ▼                               │
@@ -125,7 +118,7 @@ const CONFIG = {
 └──────────────────────────────────────────────────────────┘
 ```
 
-1. **响应劫持**：在 `@run-at document-start` 时介入，轻量 clone `fetch` 响应，解构 GraphQL 数据中的 `user_results`，无感知预热状态。
+1. **多层状态解析**：解析 `relationship_perspectives.following`、`legacy.following`，结合推文 React Fiber 深度递归查找，消除由于 X 接口版本演进导致的状态误判。
 2. **状态中枢**：采用观察者模式（Observer Pattern），单个用户的状态变更会瞬时广播给视图层所有对应卡片。
 3. **安全操作**：操作时短暂对 body 施加无感遮罩样式，触发原生三点菜单完成点击与确认，既不破坏用户视觉，又让 X 原生请求校验完整生效。
 
@@ -140,7 +133,8 @@ npm test
 ```
 
 测试覆盖：
-- GraphQL 响应树递归查找与用户实体抽取
+- `relationship_perspectives` 现代结构与传统 `legacy` 兼容解析
+- React Props / Caret 动作树深度匹配算法
 - User-Name 链接解析与 Handle 提取算法
 - FollowStateManager 跨组件订阅与广播同步
 - ButtonStateMachine 关注、二次确认倒计时、超时回滚与失败降级

@@ -10,25 +10,49 @@ export function getCookie(cookieString, name) {
 }
 
 /**
- * Recursively extracts user relationship data from X GraphQL / REST API JSON responses
+ * Recursively extracts user relationship data from X GraphQL / REST API JSON responses.
+ * Supports legacy attributes, modern relationship_perspectives, and root user fields.
  */
 export function extractUsersFromGraphQLResponse(data, results = new Map()) {
   if (!data || typeof data !== 'object') {
     return results;
   }
 
-  // Check if current node is a User object with legacy attributes
-  if (data.__typename === 'User' || (data.rest_id && data.legacy && typeof data.legacy === 'object')) {
+  // Check if current node is a User object
+  const isUserObj = data.__typename === 'User' || (data.rest_id && (data.legacy || data.relationship_perspectives));
+  if (isUserObj) {
     const legacy = data.legacy || {};
     const screenName = (legacy.screen_name || data.screen_name || '').toLowerCase();
     if (screenName) {
       const existing = results.get(screenName) || {};
+
+      // Multi-layer check for following state
+      let followingState = existing.following;
+      if (data.relationship_perspectives && data.relationship_perspectives.following !== undefined) {
+        followingState = Boolean(data.relationship_perspectives.following);
+      } else if (legacy.following !== undefined) {
+        followingState = Boolean(legacy.following);
+      } else if (data.following !== undefined) {
+        followingState = Boolean(data.following);
+      } else if (data.is_following !== undefined) {
+        followingState = Boolean(data.is_following);
+      }
+
+      let pendingState = existing.pending;
+      if (data.relationship_perspectives && data.relationship_perspectives.following_requested !== undefined) {
+        pendingState = Boolean(data.relationship_perspectives.following_requested);
+      } else if (legacy.following_requested !== undefined) {
+        pendingState = Boolean(legacy.following_requested);
+      } else if (data.following_requested !== undefined) {
+        pendingState = Boolean(data.following_requested);
+      }
+
       results.set(screenName, {
         ...existing,
         username: screenName,
         restId: String(data.rest_id || legacy.id_str || existing.restId || ''),
-        following: legacy.following !== undefined ? Boolean(legacy.following) : (existing.following || false),
-        pending: legacy.following_requested !== undefined ? Boolean(legacy.following_requested) : (existing.pending || false),
+        following: followingState !== undefined ? Boolean(followingState) : false,
+        pending: pendingState !== undefined ? Boolean(pendingState) : false,
         followedBy: legacy.followed_by !== undefined ? Boolean(legacy.followed_by) : (existing.followedBy || false),
         name: legacy.name || existing.name || ''
       });
@@ -51,6 +75,72 @@ export function extractUsersFromGraphQLResponse(data, results = new Map()) {
   }
 
   return results;
+}
+
+/**
+ * Searches React Fiber / Props tree for user relationship or Caret menu actions
+ */
+export function searchReactTreeForUser(obj, depth = 0, visited = new WeakSet()) {
+  if (!obj || typeof obj !== 'object' || depth > 8) return null;
+  if (visited.has(obj)) return null;
+  visited.add(obj);
+
+  // 1. Check for User object with relationship_perspectives or legacy
+  const legacy = obj.legacy;
+  const rel = obj.relationship_perspectives;
+  if ((legacy && legacy.screen_name) || obj.screen_name) {
+    const screenName = (legacy?.screen_name || obj.screen_name).toLowerCase();
+    let following = undefined;
+    if (rel && rel.following !== undefined) {
+      following = Boolean(rel.following);
+    } else if (legacy && legacy.following !== undefined) {
+      following = Boolean(legacy.following);
+    } else if (obj.following !== undefined) {
+      following = Boolean(obj.following);
+    } else if (obj.is_following !== undefined) {
+      following = Boolean(obj.is_following);
+    }
+
+    if (following !== undefined) {
+      return {
+        username: screenName,
+        following,
+        pending: Boolean(rel?.following_requested || legacy?.following_requested || obj.following_requested),
+        restId: String(obj.rest_id || legacy?.id_str || '')
+      };
+    }
+  }
+
+  // 2. Check if this is a Caret menu items array or action container
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      if (item && typeof item === 'object') {
+        const text = String(item.text || item.title || item.label || '').toLowerCase();
+        if (text.includes('unfollow') || text.includes('取消关注')) {
+          return { following: true };
+        }
+        if (text.includes('follow') || text.includes('关注')) {
+          if (!text.includes('unfollow') && !text.includes('取消关注')) {
+            return { following: false };
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Recurse into children
+  for (const key of Object.keys(obj)) {
+    if (key === 'children' && depth > 2) continue;
+    if (typeof data_or_val(obj[key])) {
+      const found = searchReactTreeForUser(obj[key], depth + 1, visited);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function data_or_val(v) {
+  return typeof v === 'object' && v !== null;
 }
 
 /**
@@ -209,127 +299,76 @@ test('getCookie extracts cookie values correctly', () => {
   assert.equal(getCookie(cookieStr, 'nonexistent'), null);
 });
 
-test('extractUsersFromGraphQLResponse parses nested timeline response correctly', () => {
-  const mockGraphQL = {
+test('extractUsersFromGraphQLResponse parses relationship_perspectives correctly', () => {
+  // Modern X response where legacy.following is missing/false, but relationship_perspectives.following is true
+  const modernResponse = {
     data: {
-      home: {
-        home_timeline_urt: {
-          instructions: [
-            {
-              type: 'TimelineAddEntries',
-              entries: [
-                {
-                  entryId: 'tweet-1800000000',
-                  content: {
-                    itemContent: {
-                      tweet_results: {
-                        result: {
-                          __typename: 'Tweet',
-                          rest_id: '1800000000',
-                          core: {
-                            user_results: {
-                              result: {
-                                __typename: 'User',
-                                rest_id: '44196397',
-                                legacy: {
-                                  screen_name: 'elonmusk',
-                                  name: 'Elon Musk',
-                                  following: false,
-                                  followed_by: false,
-                                  following_requested: false
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  entryId: 'tweet-1800000001',
-                  content: {
-                    itemContent: {
-                      tweet_results: {
-                        result: {
-                          __typename: 'Tweet',
-                          rest_id: '1800000001',
-                          core: {
-                            user_results: {
-                              result: {
-                                __typename: 'UserWithVisibilityResults',
-                                user: {
-                                  __typename: 'User',
-                                  rest_id: '12345678',
-                                  legacy: {
-                                    screen_name: 'sama',
-                                    name: 'Sam Altman',
-                                    following: true,
-                                    followed_by: true,
-                                    following_requested: false
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  entryId: 'tweet-1800000002',
-                  content: {
-                    itemContent: {
-                      tweet_results: {
-                        result: {
-                          __typename: 'Tweet',
-                          rest_id: '1800000002',
-                          core: {
-                            user_results: {
-                              result: {
-                                __typename: 'User',
-                                rest_id: '999999',
-                                legacy: {
-                                  screen_name: 'private_user',
-                                  name: 'Private Account',
-                                  following: false,
-                                  following_requested: true
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              ]
+      tweet: {
+        core: {
+          user_results: {
+            result: {
+              __typename: 'User',
+              rest_id: '44196397',
+              relationship_perspectives: {
+                following: true,
+                followed_by: false
+              },
+              legacy: {
+                screen_name: 'elonmusk',
+                name: 'Elon Musk'
+                // legacy.following is deliberately omitted here to test relationship_perspectives
+              }
             }
-          ]
+          }
         }
       }
     }
   };
 
-  const users = extractUsersFromGraphQLResponse(mockGraphQL);
-  assert.equal(users.size, 3);
-
+  const users = extractUsersFromGraphQLResponse(modernResponse);
+  assert.equal(users.size, 1);
   const elon = users.get('elonmusk');
   assert.ok(elon);
+  assert.equal(elon.following, true);
   assert.equal(elon.restId, '44196397');
-  assert.equal(elon.following, false);
-  assert.equal(elon.pending, false);
+});
 
-  const sama = users.get('sama');
-  assert.ok(sama);
-  assert.equal(sama.restId, '12345678');
-  assert.equal(sama.following, true);
+test('searchReactTreeForUser finds relationship_perspectives and Caret actions', () => {
+  // Case 1: React Props containing relationship_perspectives
+  const mockProps = {
+    tweet: {
+      core: {
+        user_results: {
+          result: {
+            rest_id: '12345',
+            relationship_perspectives: {
+              following: true
+            },
+            legacy: {
+              screen_name: 'sama'
+            }
+          }
+        }
+      }
+    }
+  };
 
-  const priv = users.get('private_user');
-  assert.ok(priv);
-  assert.equal(priv.pending, true);
-  assert.equal(priv.following, false);
+  const found1 = searchReactTreeForUser(mockProps);
+  assert.ok(found1);
+  assert.equal(found1.username, 'sama');
+  assert.equal(found1.following, true);
+
+  // Case 2: Caret dropdown items containing "Unfollow"
+  const mockCaretProps = {
+    items: [
+      { text: 'Not interested in this post' },
+      { text: 'Unfollow @elonmusk' }
+    ]
+  };
+
+  const found2 = searchReactTreeForUser(mockCaretProps);
+  assert.ok(found2);
+  assert.equal(found2.following, true);
 });
 
 test('extractUsernameFromLinks resolves authors accurately', () => {

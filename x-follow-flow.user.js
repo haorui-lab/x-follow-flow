@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.1.0
-// @description  Add lightweight Follow / Unfollow buttons directly to X timelines (For You, Following, Search, etc.) with 2-step confirmation and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线（For You 推荐流、Following 等）每条推文作者栏直接显示关注状态并支持一键 Follow / Unfollow（防误触确认与多卡同步）。
+// @version      0.2.0
+// @description  Add lightweight Follow / Unfollow icon button directly next to Grok on X timelines (For You, Following, Search, etc.) with 2-step confirmation and instant state sync.
+// @description:zh-CN 在 X (Twitter) 时间线（For You 推荐流、Following 等）Grok 图标旁增加轻量关注/取关 Icon 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -24,19 +24,50 @@
   // Configuration
   // ==========================================
   const CONFIG = {
-    labels: {
-      follow: '+ Follow',
-      following: '✓ Following',
-      followingHover: 'Unfollow',
-      unfollowConfirm: 'Unfollow?',
-      loadingFollow: 'Following...',
-      loadingUnfollow: 'Unfollowing...',
-      failed: 'Failed',
-      pending: 'Pending'
-    },
     confirmTimeoutMs: 3000,
     scanDebounceMs: 50,
     maxCaretWaitMs: 800
+  };
+
+  // SVG Icons (Clean 24x24 paths, rendered at 18.5x18.5)
+  const ICONS = {
+    // Person with plus (+)
+    follow: `
+      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
+        <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `,
+    // Person with checkmark (✓)
+    following: `
+      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm6.59-1.59L17.17 11l-3.59 3.59 1.42 1.41 2.17-2.17 4.18 4.18 1.41-1.41z"/>
+      </svg>
+    `,
+    // Person with minus (-) for unfollow confirmation
+    unfollowConfirm: `
+      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
+        <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-1h6v2H6zm9 3c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `,
+    // Loading spinner
+    loading: `
+      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="none" stroke="currentColor" stroke-width="2.5" class="x-follow-spinner">
+        <circle cx="12" cy="12" r="9" stroke-opacity="0.25"/>
+        <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
+      </svg>
+    `,
+    // Error / Failed
+    failed: `
+      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+      </svg>
+    `,
+    // Pending
+    pending: `
+      <svg viewBox="0 0 24 24" width="18.5" height="18.5" fill="currentColor">
+        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+      </svg>
+    `
   };
 
   // ==========================================
@@ -44,7 +75,6 @@
   // ==========================================
   class FollowStateManager {
     constructor() {
-      // Map<username, { following: boolean, pending: boolean, restId: string, updatedAt: number }>
       this.cache = new Map();
       this.listeners = new Set();
     }
@@ -79,7 +109,7 @@
         try {
           listener(username, state);
         } catch (err) {
-          console.warn('[X-Follow-Helper] Error in state listener:', err);
+          console.warn('[X-FollowFlow] Error in listener:', err);
         }
       }
     }
@@ -93,15 +123,40 @@
   function extractUsersFromData(data) {
     if (!data || typeof data !== 'object') return;
 
-    if (data.__typename === 'User' || (data.rest_id && data.legacy && typeof data.legacy === 'object')) {
+    const isUserObj = data.__typename === 'User' || (data.rest_id && (data.legacy || data.relationship_perspectives));
+    if (isUserObj) {
       const legacy = data.legacy || {};
       const screenName = (legacy.screen_name || data.screen_name || '').toLowerCase();
       if (screenName) {
+        const existing = stateManager.get(screenName) || {};
+
+        // Modern GraphQL: check relationship_perspectives, legacy, or root
+        let followingState = existing.following;
+        if (data.relationship_perspectives && data.relationship_perspectives.following !== undefined) {
+          followingState = Boolean(data.relationship_perspectives.following);
+        } else if (legacy.following !== undefined) {
+          followingState = Boolean(legacy.following);
+        } else if (data.following !== undefined) {
+          followingState = Boolean(data.following);
+        } else if (data.is_following !== undefined) {
+          followingState = Boolean(data.is_following);
+        }
+
+        let pendingState = existing.pending;
+        if (data.relationship_perspectives && data.relationship_perspectives.following_requested !== undefined) {
+          pendingState = Boolean(data.relationship_perspectives.following_requested);
+        } else if (legacy.following_requested !== undefined) {
+          pendingState = Boolean(legacy.following_requested);
+        } else if (data.following_requested !== undefined) {
+          pendingState = Boolean(data.following_requested);
+        }
+
         stateManager.set(screenName, {
-          following: Boolean(legacy.following),
-          pending: Boolean(legacy.following_requested),
-          restId: String(data.rest_id || legacy.id_str || ''),
-          followedBy: Boolean(legacy.followed_by)
+          username: screenName,
+          restId: String(data.rest_id || legacy.id_str || existing.restId || ''),
+          following: followingState !== undefined ? Boolean(followingState) : false,
+          pending: pendingState !== undefined ? Boolean(pendingState) : false,
+          followedBy: legacy.followed_by !== undefined ? Boolean(legacy.followed_by) : (existing.followedBy || false)
         });
       }
     } else if (data.__typename === 'UserWithVisibilityResults' && data.user) {
@@ -158,22 +213,19 @@
             }
           }).catch(() => {});
         }
-      } catch (err) {
-        // Silently ignore network inspection errors
-      }
+      } catch (err) {}
       return response;
     };
   }
 
   // ==========================================
-  // 3. User & DOM Utilities
+  // 3. React Tree & DOM Inspection (Fail-Safe State)
   // ==========================================
   let cachedCurrentUser = null;
 
   function getCurrentUser() {
     if (cachedCurrentUser) return cachedCurrentUser;
 
-    // Check bottom/sidebar navigation profile link
     const profileLink = document.querySelector('a[data-testid="AppTabBar_Profile_Link"]');
     if (profileLink) {
       const href = profileLink.getAttribute('href');
@@ -186,7 +238,6 @@
       }
     }
 
-    // Check account switcher button
     const switcher = document.querySelector('div[data-testid="SideNav_AccountSwitcher_Button"]');
     if (switcher) {
       const text = switcher.textContent || '';
@@ -200,10 +251,21 @@
     return null;
   }
 
-  function extractUsernameFromElement(userNameEl) {
+  function isFollowingTabActive() {
+    const activeTab = document.querySelector('div[role="tablist"] [role="tab"][aria-selected="true"]');
+    if (activeTab) {
+      const text = activeTab.textContent.trim().toLowerCase();
+      if (text.includes('following') || text.includes('正在关注')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function extractUsernameFromTweet(tweetArticle) {
+    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
     if (!userNameEl) return null;
 
-    // 1. Try finding link with href="/<username>" that is not status/hashtag
     const links = userNameEl.querySelectorAll('a[role="link"][href^="/"]');
     const reserved = new Set(['home', 'explore', 'notifications', 'messages', 'i', 'settings', 'search', 'compose']);
 
@@ -219,7 +281,6 @@
       }
     }
 
-    // 2. Fallback to @handle text regex
     const text = userNameEl.textContent || '';
     const handleMatch = text.match(/@([A-Za-z0-9_]{1,15})/);
     if (handleMatch) {
@@ -229,36 +290,97 @@
     return null;
   }
 
-  function getAuthorFromReactFiber(tweetElement) {
-    if (!tweetElement) return null;
-    const fiberKey = Object.keys(tweetElement).find(
-      k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$')
-    );
-    if (!fiberKey) return null;
+  function searchReactTreeForUser(obj, depth = 0, visited = new WeakSet()) {
+    if (!obj || typeof obj !== 'object' || depth > 8) return null;
+    if (visited.has(obj)) return null;
+    visited.add(obj);
 
-    let fiber = tweetElement[fiberKey];
-    let depth = 0;
-    while (fiber && depth < 30) {
-      const props = fiber.memoizedProps;
-      if (props) {
-        const tweet = props.tweet || props.tweetResult?.result || props.item?.content?.tweet_results?.result;
-        if (tweet) {
-          const userResult = tweet.core?.user_results?.result;
-          const user = userResult?.legacy || userResult?.user?.legacy;
-          if (user && user.screen_name) {
-            return {
-              username: user.screen_name.toLowerCase(),
-              restId: String(userResult.rest_id || user.id_str || ''),
-              following: Boolean(user.following),
-              pending: Boolean(user.following_requested),
-              name: user.name || ''
-            };
+    const legacy = obj.legacy;
+    const rel = obj.relationship_perspectives;
+    if ((legacy && legacy.screen_name) || obj.screen_name) {
+      const screenName = (legacy?.screen_name || obj.screen_name).toLowerCase();
+      let following = undefined;
+      if (rel && rel.following !== undefined) {
+        following = Boolean(rel.following);
+      } else if (legacy && legacy.following !== undefined) {
+        following = Boolean(legacy.following);
+      } else if (obj.following !== undefined) {
+        following = Boolean(obj.following);
+      } else if (obj.is_following !== undefined) {
+        following = Boolean(obj.is_following);
+      }
+
+      if (following !== undefined) {
+        return {
+          username: screenName,
+          following,
+          pending: Boolean(rel?.following_requested || legacy?.following_requested || obj.following_requested),
+          restId: String(obj.rest_id || legacy?.id_str || '')
+        };
+      }
+    }
+
+    // Check Caret menu actions if stored in props
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        if (item && typeof item === 'object') {
+          const text = String(item.text || item.title || item.label || '').toLowerCase();
+          if (text.includes('unfollow') || text.includes('取消关注')) {
+            return { following: true };
+          }
+          if (text.includes('follow') || text.includes('关注')) {
+            if (!text.includes('unfollow') && !text.includes('取消关注')) {
+              return { following: false };
+            }
           }
         }
       }
-      fiber = fiber.return;
-      depth++;
     }
+
+    for (const key of Object.keys(obj)) {
+      if (key === 'children' && depth > 2) continue;
+      if (typeof obj[key] === 'object' && obj[key] !== null) {
+        const found = searchReactTreeForUser(obj[key], depth + 1, visited);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function inspectFollowState(tweetArticle, author) {
+    if (!tweetArticle) return null;
+
+    const caret = tweetArticle.querySelector('button[data-testid="caret"]');
+    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
+    const avatarEl = tweetArticle.querySelector('div[data-testid="Tweet-User-Avatar"]');
+    const elements = [caret, userNameEl, avatarEl, tweetArticle].filter(Boolean);
+
+    for (const el of elements) {
+      const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps$'));
+      if (propsKey && el[propsKey]) {
+        const found = searchReactTreeForUser(el[propsKey]);
+        if (found && (found.username === author || found.following !== undefined)) {
+          return found;
+        }
+      }
+
+      const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
+      if (fiberKey && el[fiberKey]) {
+        let fiber = el[fiberKey];
+        let depth = 0;
+        while (fiber && depth < 20) {
+          if (fiber.memoizedProps) {
+            const found = searchReactTreeForUser(fiber.memoizedProps);
+            if (found && (found.username === author || found.following !== undefined)) {
+              return found;
+            }
+          }
+          fiber = fiber.return;
+          depth++;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -285,13 +407,11 @@
     const caret = tweetElement.querySelector('button[data-testid="caret"]');
     if (!caret) return false;
 
-    // Suppress visual popups during automated interaction
     document.body.classList.add('x-follow-silent-mode');
 
     try {
       triggerClick(caret);
 
-      // Wait for menu dropdown
       let menu = null;
       const start = Date.now();
       while (Date.now() - start < CONFIG.maxCaretWaitMs) {
@@ -305,7 +425,6 @@
         return false;
       }
 
-      // Find matching menu item
       const menuItems = Array.from(menu.querySelectorAll('[role="menuitem"], div[tabindex="0"]'));
       let targetItem = null;
 
@@ -314,7 +433,6 @@
         const containsHandle = text.includes(`@${username}`);
 
         if (isFollow) {
-          // Look for follow action
           const isFollowText = text.includes('follow') || text.includes('关注') || text.includes('seguir') || text.includes('suivre') || text.includes('フォロー');
           const isExcluded = text.includes('unfollow') || text.includes('取消关注') || text.includes('mute') || text.includes('block') || text.includes('静音') || text.includes('屏蔽') || text.includes('list');
           if ((containsHandle && isFollowText && !isExcluded) || (isFollowText && !isExcluded)) {
@@ -322,7 +440,6 @@
             break;
           }
         } else {
-          // Look for unfollow action
           const isUnfollowText = text.includes('unfollow') || text.includes('取消关注') || text.includes('dejar de seguir') || text.includes('ne plus suivre') || text.includes('フォロー解除');
           if (isUnfollowText) {
             targetItem = item;
@@ -332,14 +449,13 @@
       }
 
       if (!targetItem) {
-        triggerClick(caret); // Close menu
+        triggerClick(caret);
         document.body.classList.remove('x-follow-silent-mode');
         return false;
       }
 
       triggerClick(targetItem);
 
-      // For unfollow: confirm modal may appear
       if (!isFollow) {
         const confirmStart = Date.now();
         while (Date.now() - confirmStart < CONFIG.maxCaretWaitMs) {
@@ -389,10 +505,7 @@
         credentials: 'include'
       });
 
-      if (response.ok) {
-        return true;
-      }
-      return false;
+      return response.ok;
     } catch (e) {
       return false;
     }
@@ -403,14 +516,12 @@
     const cached = stateManager.get(username);
     const restId = cached?.restId || '';
 
-    // 1. Try Native Caret simulation first
     const caretSuccess = await executeActionViaCaret(tweetElement, username, isFollow);
     if (caretSuccess) {
       stateManager.set(username, { following: isFollow, pending: false });
       return true;
     }
 
-    // 2. Fallback to direct Session API
     const apiSuccess = await executeActionViaAPI(username, isFollow, restId);
     if (apiSuccess) {
       stateManager.set(username, { following: isFollow, pending: false });
@@ -421,15 +532,14 @@
   }
 
   // ==========================================
-  // 5. UI Component & Style Injection
+  // 5. UI Component (Icon next to Grok)
   // ==========================================
   function injectStyles() {
-    if (document.getElementById('x-timeline-follow-styles')) return;
+    if (document.getElementById('x-followflow-styles')) return;
 
     const style = document.createElement('style');
-    style.id = 'x-timeline-follow-styles';
+    style.id = 'x-followflow-styles';
     style.textContent = `
-      /* Silent mode for invisible native menu interaction */
       body.x-follow-silent-mode div[role="menu"],
       body.x-follow-silent-mode div[data-testid="Dropdown"],
       body.x-follow-silent-mode div[data-testid="confirmationSheetDialog"],
@@ -440,216 +550,156 @@
         transition: none !important;
       }
 
-      /* Container */
-      .x-timeline-follow-container {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 6px;
-        vertical-align: middle;
-        flex-shrink: 0;
-      }
-
-      /* Button Base */
-      .x-timeline-follow-btn {
+      /* Container matching X action bar items */
+      .x-followflow-container {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 16px;
-        min-width: 68px;
-        height: 26px;
-        padding: 0 10px;
-        border-radius: 9999px;
+        flex-shrink: 0;
+      }
+
+      /* Base Icon Button */
+      .x-followflow-icon-btn {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
         cursor: pointer;
-        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
         outline: none;
-        box-sizing: border-box;
-        white-space: nowrap;
-        user-select: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #71767b;
+        transition: color 0.15s ease;
+        position: relative;
       }
 
-      /* State: Follow (+ Follow) */
-      .x-timeline-follow-btn.x-state-follow {
-        background-color: #0f1419;
-        color: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0);
-      }
-      .x-timeline-follow-btn.x-state-follow:hover {
-        background-color: #272c30;
-      }
-
-      /* State: Following (✓ Following) */
-      .x-timeline-follow-btn.x-state-following {
-        background-color: transparent;
-        color: #536471;
-        border: 1px solid #cfd9de;
-      }
-      .x-timeline-follow-btn.x-state-following:hover {
-        border-color: #fdc9ce;
-        color: #f4212e;
-        background-color: rgba(244, 33, 46, 0.06);
-      }
-      .x-timeline-follow-btn.x-state-following:hover .x-btn-label-following {
-        display: none;
-      }
-      .x-timeline-follow-btn.x-state-following:hover .x-btn-label-hover {
-        display: inline;
-      }
-      .x-timeline-follow-btn.x-state-following .x-btn-label-hover {
-        display: none;
+      /* Circular hover background matching native X action buttons */
+      .x-followflow-icon-wrapper {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 9999px;
+        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
       }
 
-      /* State: Confirming Unfollow (Unfollow?) */
-      .x-timeline-follow-btn.x-state-confirm {
-        background-color: rgba(244, 33, 46, 0.12);
-        color: #f4212e;
-        border: 1px solid #f4212e;
+      /* Hover on NOT_FOLLOWING (+ Follow) */
+      .x-followflow-icon-btn.x-state-follow:hover .x-followflow-icon-wrapper {
+        background-color: rgba(29, 155, 240, 0.1);
+        color: rgb(29, 155, 240);
       }
-      .x-timeline-follow-btn.x-state-confirm:hover {
-        background-color: rgba(244, 33, 46, 0.22);
+      .x-followflow-icon-btn.x-state-follow:hover {
+        color: rgb(29, 155, 240);
       }
 
-      /* State: Loading */
-      .x-timeline-follow-btn.x-state-loading {
-        opacity: 0.6;
+      /* FOLLOWING: Subtle active blue/brand accent */
+      .x-followflow-icon-btn.x-state-following {
+        color: rgb(29, 155, 240);
+      }
+      .x-followflow-icon-btn.x-state-following:hover {
+        color: rgb(244, 33, 46);
+      }
+      .x-followflow-icon-btn.x-state-following:hover .x-followflow-icon-wrapper {
+        background-color: rgba(244, 33, 46, 0.1);
+      }
+
+      /* CONFIRMING UNFOLLOW: Red warning pulse */
+      .x-followflow-icon-btn.x-state-confirm {
+        color: rgb(244, 33, 46);
+      }
+      .x-followflow-icon-btn.x-state-confirm .x-followflow-icon-wrapper {
+        background-color: rgba(244, 33, 46, 0.15);
+        transform: scale(1.08);
+      }
+
+      /* LOADING SPINNER */
+      .x-followflow-icon-btn.x-state-loading {
         cursor: wait;
+        opacity: 0.7;
         pointer-events: none;
       }
+      .x-follow-spinner {
+        animation: x-spin 0.85s linear infinite;
+      }
+      @keyframes x-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
 
-      /* State: Failed */
-      .x-timeline-follow-btn.x-state-failed {
+      /* FAILED */
+      .x-followflow-icon-btn.x-state-failed {
+        color: rgb(244, 33, 46);
+      }
+      .x-followflow-icon-btn.x-state-failed .x-followflow-icon-wrapper {
         background-color: rgba(244, 33, 46, 0.15);
-        color: #f4212e;
-        border: 1px solid #f4212e;
-        cursor: default;
       }
 
-      /* State: Pending */
-      .x-timeline-follow-btn.x-state-pending {
-        background-color: transparent;
+      /* PENDING */
+      .x-followflow-icon-btn.x-state-pending {
         color: #71767b;
-        border: 1px solid #71767b;
         cursor: default;
-      }
-
-      /* Dark / Dim mode responsive styles */
-      @media (prefers-color-scheme: dark) {
-        .x-timeline-follow-btn.x-state-follow {
-          background-color: #eff3f4;
-          color: #0f1419;
-        }
-        .x-timeline-follow-btn.x-state-follow:hover {
-          background-color: #d7dbdc;
-        }
-        .x-timeline-follow-btn.x-state-following {
-          color: #71767b;
-          border: 1px solid #536471;
-        }
-      }
-
-      body[style*="background-color: rgb(0, 0, 0)"] .x-timeline-follow-btn.x-state-follow,
-      body[style*="background-color: rgb(21, 32, 43)"] .x-timeline-follow-btn.x-state-follow,
-      html.dark .x-timeline-follow-btn.x-state-follow {
-        background-color: #eff3f4;
-        color: #0f1419;
-      }
-      body[style*="background-color: rgb(0, 0, 0)"] .x-timeline-follow-btn.x-state-follow:hover,
-      body[style*="background-color: rgb(21, 32, 43)"] .x-timeline-follow-btn.x-state-follow:hover,
-      html.dark .x-timeline-follow-btn.x-state-follow:hover {
-        background-color: #d7dbdc;
-      }
-      body[style*="background-color: rgb(0, 0, 0)"] .x-timeline-follow-btn.x-state-following,
-      body[style*="background-color: rgb(21, 32, 43)"] .x-timeline-follow-btn.x-state-following,
-      html.dark .x-timeline-follow-btn.x-state-following {
-        color: #71767b;
-        border: 1px solid #536471;
       }
     `;
     (document.head || document.documentElement).appendChild(style);
   }
 
-  function insertButtonIntoUserName(userNameEl, buttonContainer) {
-    const caret = userNameEl.querySelector('button[data-testid="caret"]');
-    if (caret) {
-      let caretContainer = caret;
-      while (caretContainer && caretContainer.parentElement !== userNameEl) {
-        caretContainer = caretContainer.parentElement;
-      }
-      if (caretContainer && caretContainer.parentElement === userNameEl) {
-        userNameEl.insertBefore(buttonContainer, caretContainer);
-        return;
-      }
-    }
-
-    const firstRow = userNameEl.firstElementChild || userNameEl;
-    firstRow.appendChild(buttonContainer);
-  }
-
-  function createFollowButton(tweetElement, username, initialFollowing, initialPending) {
+  function createFollowIconButton(tweetElement, username, initialFollowing, initialPending) {
     const container = document.createElement('div');
-    container.className = 'x-timeline-follow-container';
+    container.className = 'x-followflow-container';
     container.setAttribute('data-x-author', username);
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'x-timeline-follow-btn';
+    btn.className = 'x-followflow-icon-btn';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'x-followflow-icon-wrapper';
+    btn.appendChild(wrapper);
     container.appendChild(btn);
 
     let currentState = initialPending ? 'PENDING' : (initialFollowing ? 'FOLLOWING' : 'NOT_FOLLOWING');
     let confirmTimer = null;
 
     function renderUI() {
-      btn.className = 'x-timeline-follow-btn';
-      btn.innerHTML = '';
+      btn.className = 'x-followflow-icon-btn';
 
       if (currentState === 'NOT_FOLLOWING') {
         btn.classList.add('x-state-follow');
-        btn.textContent = CONFIG.labels.follow;
+        wrapper.innerHTML = ICONS.follow;
         btn.title = `Follow @${username}`;
       } else if (currentState === 'FOLLOWING') {
         btn.classList.add('x-state-following');
-        btn.title = `Following @${username}`;
-
-        const normalSpan = document.createElement('span');
-        normalSpan.className = 'x-btn-label-following';
-        normalSpan.textContent = CONFIG.labels.following;
-
-        const hoverSpan = document.createElement('span');
-        hoverSpan.className = 'x-btn-label-hover';
-        hoverSpan.textContent = CONFIG.labels.followingHover;
-
-        btn.appendChild(normalSpan);
-        btn.appendChild(hoverSpan);
+        wrapper.innerHTML = ICONS.following;
+        btn.title = `Following @${username} (Click to unfollow)`;
       } else if (currentState === 'CONFIRMING_UNFOLLOW') {
         btn.classList.add('x-state-confirm');
-        btn.textContent = CONFIG.labels.unfollowConfirm;
-        btn.title = `Click again to unfollow @${username}`;
-      } else if (currentState === 'LOADING_FOLLOW') {
+        wrapper.innerHTML = ICONS.unfollowConfirm;
+        btn.title = `Click again to confirm unfollow @${username}`;
+      } else if (currentState === 'LOADING') {
         btn.classList.add('x-state-loading');
-        btn.textContent = CONFIG.labels.loadingFollow;
-      } else if (currentState === 'LOADING_UNFOLLOW') {
-        btn.classList.add('x-state-loading');
-        btn.textContent = CONFIG.labels.loadingUnfollow;
+        wrapper.innerHTML = ICONS.loading;
+        btn.title = 'Processing...';
       } else if (currentState === 'FAILED') {
         btn.classList.add('x-state-failed');
-        btn.textContent = CONFIG.labels.failed;
+        wrapper.innerHTML = ICONS.failed;
+        btn.title = 'Action failed';
       } else if (currentState === 'PENDING') {
         btn.classList.add('x-state-pending');
-        btn.textContent = CONFIG.labels.pending;
+        wrapper.innerHTML = ICONS.pending;
+        btn.title = 'Follow request pending';
       }
     }
 
     renderUI();
 
-    // Prevent clicking from bubbling to tweet card navigation
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
 
       if (currentState === 'NOT_FOLLOWING') {
-        currentState = 'LOADING_FOLLOW';
+        currentState = 'LOADING';
         renderUI();
         const success = await executeFollowToggle(tweetElement, username, true);
         if (success) {
@@ -667,7 +717,6 @@
         }
         renderUI();
       } else if (currentState === 'FOLLOWING') {
-        // Step 1: Request confirmation
         currentState = 'CONFIRMING_UNFOLLOW';
         renderUI();
         if (confirmTimer) clearTimeout(confirmTimer);
@@ -678,9 +727,8 @@
           }
         }, CONFIG.confirmTimeoutMs);
       } else if (currentState === 'CONFIRMING_UNFOLLOW') {
-        // Step 2: Confirmed unfollow
         if (confirmTimer) clearTimeout(confirmTimer);
-        currentState = 'LOADING_UNFOLLOW';
+        currentState = 'LOADING';
         renderUI();
         const success = await executeFollowToggle(tweetElement, username, false);
         if (success) {
@@ -703,10 +751,9 @@
     btn.addEventListener('mousedown', (e) => e.stopPropagation());
     btn.addEventListener('mouseup', (e) => e.stopPropagation());
 
-    // Subscribe to global state changes for this author
     const unsubscribe = stateManager.subscribe((changedUsername, state) => {
       if (changedUsername !== username) return;
-      if (currentState === 'LOADING_FOLLOW' || currentState === 'LOADING_UNFOLLOW') return;
+      if (currentState === 'LOADING') return;
 
       if (confirmTimer) {
         clearTimeout(confirmTimer);
@@ -723,64 +770,156 @@
       renderUI();
     });
 
-    // Cleanup subscription if container is removed
     container._unsubscribe = unsubscribe;
+    container._updateState = (following, pending) => {
+      if (currentState === 'LOADING') return;
+      if (pending) currentState = 'PENDING';
+      else if (following) currentState = 'FOLLOWING';
+      else currentState = 'NOT_FOLLOWING';
+      renderUI();
+    };
+
     return container;
   }
 
   // ==========================================
-  // 6. Injection & Mutation Observer
+  // 6. Placement & Mutation Observer
   // ==========================================
+  function insertFollowIcon(tweetArticle, buttonContainer) {
+    // 1. Primary: Locate Grok button in tweet
+    const grokBtn = tweetArticle.querySelector('button[aria-label*="grok" i], [data-testid*="grok" i]');
+    if (grokBtn) {
+      let grokWrapper = grokBtn;
+      if (grokBtn.parentElement && grokBtn.parentElement.getAttribute('role') !== 'group') {
+        grokWrapper = grokBtn.parentElement;
+      }
+      if (grokWrapper.parentElement) {
+        // Place right beside Grok
+        grokWrapper.parentElement.insertBefore(buttonContainer, grokWrapper);
+        return;
+      }
+    }
+
+    // 2. Secondary: Locate action bar (div[role="group"])
+    const actionBar = tweetArticle.querySelector('div[role="group"]');
+    if (actionBar) {
+      // Place next to Bookmark
+      const bookmark = actionBar.querySelector('[data-testid="bookmark"], [data-testid="removeBookmark"]');
+      if (bookmark) {
+        let bWrapper = bookmark;
+        if (bookmark.parentElement && bookmark.parentElement !== actionBar) {
+          bWrapper = bookmark.parentElement;
+        }
+        if (bWrapper.nextSibling) {
+          actionBar.insertBefore(buttonContainer, bWrapper.nextSibling);
+        } else {
+          actionBar.appendChild(buttonContainer);
+        }
+        return;
+      }
+
+      // Or right before Share
+      const share = actionBar.querySelector('button[data-testid="share"], [aria-label*="share" i]');
+      if (share) {
+        let sWrapper = share;
+        if (share.parentElement && share.parentElement !== actionBar) {
+          sWrapper = share.parentElement;
+        }
+        actionBar.insertBefore(buttonContainer, sWrapper);
+        return;
+      }
+
+      actionBar.appendChild(buttonContainer);
+      return;
+    }
+
+    // 3. Fallback to User-Name area if action bar not yet mounted
+    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
+    if (userNameEl) {
+      const caret = userNameEl.querySelector('button[data-testid="caret"]');
+      if (caret) {
+        let caretContainer = caret;
+        while (caretContainer && caretContainer.parentElement !== userNameEl) {
+          caretContainer = caretContainer.parentElement;
+        }
+        if (caretContainer && caretContainer.parentElement === userNameEl) {
+          userNameEl.insertBefore(buttonContainer, caretContainer);
+          return;
+        }
+      }
+      const firstRow = userNameEl.firstElementChild || userNameEl;
+      firstRow.appendChild(buttonContainer);
+    }
+  }
+
   function processTweet(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
 
-    const userNameEls = tweetArticle.querySelectorAll('div[data-testid="User-Name"]');
-    if (!userNameEls.length) return;
+    const author = extractUsernameFromTweet(tweetArticle);
+    if (!author) return;
 
     const currentUser = getCurrentUser();
+    if (currentUser && author === currentUser) {
+      const existing = tweetArticle.querySelector('.x-followflow-container');
+      if (existing) existing.remove();
+      return;
+    }
 
-    for (const userNameEl of userNameEls) {
-      const existingContainer = userNameEl.querySelector('.x-timeline-follow-container');
-      const author = extractUsernameFromElement(userNameEl);
-
-      if (!author) continue;
-
-      // Ignore current logged-in user
-      if (currentUser && author === currentUser) {
-        if (existingContainer) existingContainer.remove();
-        continue;
+    const existingContainer = tweetArticle.querySelector('.x-followflow-container');
+    if (existingContainer) {
+      if (existingContainer.getAttribute('data-x-author') === author) {
+        return; // Already present
       }
+      if (existingContainer._unsubscribe) existingContainer._unsubscribe();
+      existingContainer.remove();
+    }
 
-      // Check if button already belongs to this author
-      if (existingContainer) {
-        if (existingContainer.getAttribute('data-x-author') === author) {
-          continue; // Already correctly injected
+    // Follow state detection hierarchy
+    let following = false;
+    let pending = false;
+    let resolved = false;
+
+    // A. Check State Manager cache
+    const cached = stateManager.get(author);
+    if (cached) {
+      following = cached.following;
+      pending = cached.pending;
+      resolved = true;
+    }
+
+    // B. Check React Tree / Fiber
+    if (!resolved) {
+      const inspected = inspectFollowState(tweetArticle, author);
+      if (inspected && inspected.following !== undefined) {
+        following = inspected.following;
+        pending = inspected.pending;
+        resolved = true;
+        stateManager.set(author, { following, pending, restId: inspected.restId });
+      }
+    }
+
+    // C. Check Active Tab: in Following tab, default is true
+    if (!resolved && isFollowingTabActive()) {
+      following = true;
+      resolved = true;
+      stateManager.set(author, { following: true, pending: false });
+    }
+
+    const buttonContainer = createFollowIconButton(tweetArticle, author, following, pending);
+    insertFollowIcon(tweetArticle, buttonContainer);
+
+    // If unresolved, schedule a micro-check after React finishes mounting subcomponents
+    if (!resolved) {
+      setTimeout(() => {
+        if (!tweetArticle.isConnected) return;
+        const recheck = stateManager.get(author) || inspectFollowState(tweetArticle, author);
+        if (recheck && recheck.following !== undefined) {
+          stateManager.set(author, recheck);
+          if (buttonContainer._updateState) {
+            buttonContainer._updateState(recheck.following, recheck.pending);
+          }
         }
-        // Author recycled in virtual list, remove stale container
-        if (existingContainer._unsubscribe) existingContainer._unsubscribe();
-        existingContainer.remove();
-      }
-
-      // Determine initial follow state
-      let following = false;
-      let pending = false;
-      const cached = stateManager.get(author);
-
-      if (cached) {
-        following = cached.following;
-        pending = cached.pending;
-      } else {
-        // Fallback to React Fiber inspection
-        const fiberData = getAuthorFromReactFiber(tweetArticle);
-        if (fiberData && fiberData.username === author) {
-          following = fiberData.following;
-          pending = fiberData.pending;
-          stateManager.set(author, fiberData);
-        }
-      }
-
-      const buttonContainer = createFollowButton(tweetArticle, author, following, pending);
-      insertButtonIntoUserName(userNameEl, buttonContainer);
+      }, 250);
     }
   }
 
@@ -831,7 +970,7 @@
   // ==========================================
   function initSPAHandler() {
     const handleUrlChange = () => {
-      cachedCurrentUser = null; // Re-evaluate in case of account switch
+      cachedCurrentUser = null;
       scheduleScan();
     };
 
