@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.2
+// @version      0.5.3
 // @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with 2-step confirmation and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
+// @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / •) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -110,7 +110,7 @@
     }
   }
 
-  // High-Recognition Crisp SVG Icons (+ / ✓ / −) without outer borders
+  // High-Recognition Crisp SVG Icons (+ / • / −) without outer borders
   const ICONS = {
     // Pure, sleek Plus (+) for Follow
     follow: `
@@ -119,10 +119,10 @@
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
-    // Pure, sleek Checkmark (✓) for Following (optically balanced with native Bookmark)
+    // Subtle, minimalist micro-dot (•) for Following (calm aesthetic matching X timeline)
     following: `
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 7.5 9 18.5 4 13.5"></polyline>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <circle cx="12" cy="12" r="3" fill="currentColor"/>
       </svg>
     `,
     // Pure, sleek Minus (−) for Confirming Unfollow
@@ -767,7 +767,7 @@
         color: #1d9bf0;
       }
 
-      /* FOLLOWING (✓): Neutral gray matching (+), turns Red on hover when (−) appears */
+      /* FOLLOWING (•): Neutral gray matching (+), turns Red on hover when (−) appears */
       .x-followflow-icon-btn.x-state-following {
         color: #71767b;
       }
@@ -868,7 +868,7 @@
         btn.title = `+ 关注 @${username}`;
       } else if (currentState === 'FOLLOWING') {
         btn.classList.add('x-state-following');
-        // Normal state: Checkmark (✓); Hover state: Minus (−)
+        // Normal state: Micro-dot (•); Hover state: Minus (−)
         const normalSpan = document.createElement('span');
         normalSpan.className = 'x-icon-normal';
         normalSpan.innerHTML = ICONS.following;
@@ -879,7 +879,7 @@
 
         wrapper.appendChild(normalSpan);
         wrapper.appendChild(hoverSpan);
-        btn.title = `✓ 正在关注 @${username} (点击可取消关注)`;
+        btn.title = `● 已关注 @${username} (点击可取消关注)`;
       } else if (currentState === 'CONFIRMING_UNFOLLOW') {
         btn.classList.add('x-state-confirm');
         wrapper.innerHTML = ICONS.unfollowConfirm;

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.2-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.3-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-支持-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-支持-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -36,7 +36,7 @@
   - 严格限定作者 Handle 校验 React Fiber，彻底杜绝当前登录账号与 Mention 账户串扰误报；
   - 接入 HoverCard 浮层实时同步与 Following 标签页上下文智能感知。
 - 🛡️ **防误触两步取关确认**：
-  - 点击已关注作者（`✓`）后，图标变为红色告警减号（`−`），启动 3 秒安全倒计时；
+  - 点击已关注作者（`•`）后，图标变为红色告警减号（`−`），启动 3 秒安全倒计时；
   - 3 秒内未再次点击自动恢复；
   - 再次点击方才执行取关操作，彻底避免手滑误取关。
 - 🔄 **全屏多卡片实时联动**：信息流中同一作者若有多条推文，在任一推文上操作，全屏所有该作者的卡片状态瞬间同步。
@@ -51,7 +51,7 @@
 | 状态 | 图标符号 | 视觉表现 | 交互行为 |
 | :--- | :---: | :--- | :--- |
 | **未关注** | `+` | 中性灰色加号，悬浮显示 Twitter 经典蓝圈 | 点击立即 **关注** |
-| **已关注** | `✓` | 中性灰色对勾（与原生图标一致，悬浮变红色 `−` 提示） | 点击启动 **防误触确认** |
+| **已关注** | `•` | 克制中性灰色微圆点（悬浮变红色 `−` 提示），低干扰融入推文流 | 点击启动 **防误触确认** |
 | **确认中** | `−` | 告警红色（`#f4212e`）减号，伴随微呼吸动画 | 3秒内再次点击 **取关**；超时自动复原 |
 | **处理中** | ⟳ | 原生平滑旋转 Spinner | 禁用防连击 |
 
@@ -83,7 +83,7 @@
 
 👉 **[点击一键在线安装 x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.2))*。
+*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.3))*。
 
 ---
 
@@ -120,7 +120,7 @@ const CONFIG = {
 │                              ▼                                  │
 │   ┌──────────────────────────────────────────────────────────┐  │
 │   │           UI Component (分享按钮右侧原生图标注入)        │  │
-│   │       [ + (未关注) ] ⇄ [ ✓ (已关注) ] ⇄ [ − (3秒确认) ]  │  │
+│   │       [ + (未关注) ] ⇄ [ • (已关注) ] ⇄ [ − (3秒确认) ]  │  │
 │   └──────────────────────────┬───────────────────────────────┘  │
 │                              │ 用户点击触发                     │
 │                              ▼                                  │
