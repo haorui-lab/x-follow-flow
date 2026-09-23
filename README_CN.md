@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.1-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.2-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-支持-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-支持-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -40,7 +40,7 @@
   - 3 秒内未再次点击自动恢复；
   - 再次点击方才执行取关操作，彻底避免手滑误取关。
 - 🔄 **全屏多卡片实时联动**：信息流中同一作者若有多条推文，在任一推文上操作，全屏所有该作者的卡片状态瞬间同步。
-- 👤 **本人推文自动过滤**：自动识别登录账号，本人发布的推文绝不显示按钮。
+- 👤 **本人与主页推文自动过滤**：自动识别登录账号（本人推文不显示按钮），并自动在个人主页（`https://x.com/[username]`）屏蔽按钮（主页顶部已自带显眼的原生关注/已关注按钮）。
 - 🚀 **极致性能与虚拟滚动优化**：防抖 MutationObserver 监听，平滑支撑 SPA 无限滚动，零布局抖动，零内存泄漏。
 - 🔒 **100% 本地隐私安全**：纯客户端运行，绝无任何第三方远程统计、上报或私有 API Key。
 
@@ -61,10 +61,11 @@
 
 - ✅ `https://x.com/home` (For You 推荐流 / Following 关注流)
 - ✅ `https://x.com/search?*` (搜索结果时间线)
-- ✅ `https://x.com/[username]` (用户主页 Posts 时间线)
 - ✅ `https://x.com/[username]/status/[id]` (单条推文详情页与回复流)
 - ✅ `https://x.com/i/lists/*` (Lists 时间线)
+- ✅ `https://x.com/i/bookmarks` (书签时间线)
 - ✅ `https://twitter.com/*` (所有旧域名对应页面)
+- ⚪ `https://x.com/[username]` (按设计已排除：个人主页自带原生关注按钮)
 
 ---
 
@@ -82,7 +83,7 @@
 
 👉 **[点击一键在线安装 x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.4.0))*。
+*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.2))*。
 
 ---
 

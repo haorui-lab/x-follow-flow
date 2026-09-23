@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.1-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.2-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-supported-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-supported-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -40,7 +40,7 @@ Browsing X's **For You** feed is one of the primary ways to discover new creator
   - Automatically reverts after 3 seconds if not clicked again.
   - Second click confirms unfollow.
 - 🔄 **Cross-Card State Synchronization**: If an author appears multiple times in your feed, following or unfollowing them on one post instantly synchronizes across all visible cards.
-- 👤 **Self-Post Filtering**: Automatically identifies your logged-in handle; buttons are never shown on your own posts.
+- 👤 **Self-Post & Profile Filtering**: Automatically identifies your logged-in handle (never shown on your own posts) and cleanly disables buttons on user profile pages (`https://x.com/[username]`) where native follow controls are already prominent.
 - 🚀 **High Performance & Virtual Scroll Friendly**: Debounced `MutationObserver` with zero layout shifts, 60fps scrolling, and memory leak prevention.
 - 🔒 **100% Client-Side Privacy**: Zero external requests, zero analytics, no tokens or cookies uploaded. All operations run strictly on your machine.
 
@@ -61,10 +61,11 @@ Browsing X's **For You** feed is one of the primary ways to discover new creator
 
 - ✅ `https://x.com/home` (For You & Following timelines)
 - ✅ `https://x.com/search?*` (Search results timeline)
-- ✅ `https://x.com/[username]` (User profile post feeds)
 - ✅ `https://x.com/[username]/status/[id]` (Tweet detail & replies stream)
 - ✅ `https://x.com/i/lists/*` (Lists feed)
+- ✅ `https://x.com/i/bookmarks` (Bookmarks feed)
 - ✅ `https://twitter.com/*` (Legacy domain support)
+- ⚪ `https://x.com/[username]` (Excluded by design: user profiles already feature native Follow controls)
 
 ---
 
@@ -82,7 +83,7 @@ Click the link below to install directly with one click:
 
 👉 **[Install x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(If GitHub CDN serves a cached older version, use the [Commit-Specific Link](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.4.0) to bypass edge cache).*
+*(If GitHub CDN serves a cached older version, use the [Commit-Specific Link](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.2) to bypass edge cache).*
 
 ---
 

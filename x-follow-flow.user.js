@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.1
+// @version      0.5.2
 // @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with 2-step confirmation and instant state sync.
 // @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / ✓) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
@@ -28,6 +28,87 @@
     scanDebounceMs: 50,
     maxCaretWaitMs: 800
   };
+
+  const RESERVED_ROUTES = new Set([
+    'home',
+    'explore',
+    'notifications',
+    'messages',
+    'i',
+    'settings',
+    'search',
+    'compose',
+    'login',
+    'logout',
+    'signup',
+    'tos',
+    'privacy',
+    'about',
+    'jobs',
+    'download',
+    'hashtag',
+    'intent',
+    'share',
+    'account',
+    'oauth',
+    'welcome',
+    'who_to_follow',
+    'connect_people',
+    'topics',
+    'trends',
+    'x',
+    'help',
+    'support',
+    'developer',
+    'live',
+    'lists',
+    'communities',
+    'spaces',
+    'premium',
+    'verified',
+    'verified-choose',
+    'creator'
+  ]);
+
+  function isProfilePage(urlOrPath) {
+    const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
+      .replace(/^https?:\/\/[^\/]+/, '')
+      .split('?')[0]
+      .split('#')[0];
+
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length === 0) return false;
+
+    const firstSegment = segments[0].toLowerCase();
+    if (RESERVED_ROUTES.has(firstSegment)) return false;
+
+    // Twitter username format: 1-15 characters, alphanumeric + underscore
+    if (!/^[a-z0-9_]{1,15}$/.test(firstSegment)) return false;
+
+    // A user profile page is /${username} or /${username}/${profileTab}
+    // E.g., /elonmusk, /elonmusk/with_replies, /elonmusk/highlights, /elonmusk/media, etc.
+    // Tweet status pages (/status/...) or deeper paths are excluded.
+    if (segments.length === 1) {
+      return true;
+    }
+    if (segments.length === 2 && segments[1].toLowerCase() !== 'status') {
+      return true;
+    }
+
+    return false;
+  }
+
+  function removeAllFollowIcons() {
+    const containers = document.querySelectorAll('.x-followflow-container');
+    for (const container of containers) {
+      if (container._unsubscribe) {
+        try {
+          container._unsubscribe();
+        } catch (e) {}
+      }
+      container.remove();
+    }
+  }
 
   // High-Recognition Crisp SVG Icons (+ / ✓ / −) without outer borders
   const ICONS = {
@@ -279,15 +360,13 @@
     if (!userNameEl) return null;
 
     const links = userNameEl.querySelectorAll('a[role="link"][href^="/"]');
-    const reserved = new Set(['home', 'explore', 'notifications', 'messages', 'i', 'settings', 'search', 'compose']);
-
     for (const link of links) {
       const href = link.getAttribute('href') || '';
       const path = href.replace(/^https?:\/\/[^\/]+/, '').split('?')[0].split('#')[0];
       const match = path.match(/^\/([A-Za-z0-9_]{1,15})$/);
       if (match) {
         const candidate = match[1].toLowerCase();
-        if (!reserved.has(candidate)) {
+        if (!RESERVED_ROUTES.has(candidate)) {
           return candidate;
         }
       }
@@ -995,6 +1074,17 @@
   async function processTweet(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
 
+    if (isProfilePage()) {
+      const existing = tweetArticle.querySelector('.x-followflow-container');
+      if (existing) {
+        if (existing._unsubscribe) {
+          try { existing._unsubscribe(); } catch (e) {}
+        }
+        existing.remove();
+      }
+      return;
+    }
+
     const author = extractUsernameFromTweet(tweetArticle);
     if (!author) return;
 
@@ -1082,6 +1172,10 @@
     scanScheduled = true;
     setTimeout(() => {
       scanScheduled = false;
+      if (isProfilePage()) {
+        removeAllFollowIcons();
+        return;
+      }
       const tweets = document.querySelectorAll('article[data-testid="tweet"]');
       for (const tweet of tweets) {
         processTweet(tweet);
@@ -1123,6 +1217,9 @@
   function initSPAHandler() {
     const handleUrlChange = () => {
       cachedCurrentUser = null;
+      if (isProfilePage()) {
+        removeAllFollowIcons();
+      }
       scheduleScan();
     };
 

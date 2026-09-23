@@ -140,19 +140,89 @@ export function searchReactTreeForUser(obj, targetAuthor, depth = 0, visited = n
   return null;
 }
 
+export const RESERVED_ROUTES = new Set([
+  'home',
+  'explore',
+  'notifications',
+  'messages',
+  'i',
+  'settings',
+  'search',
+  'compose',
+  'login',
+  'logout',
+  'signup',
+  'tos',
+  'privacy',
+  'about',
+  'jobs',
+  'download',
+  'hashtag',
+  'intent',
+  'share',
+  'account',
+  'oauth',
+  'welcome',
+  'who_to_follow',
+  'connect_people',
+  'topics',
+  'trends',
+  'x',
+  'help',
+  'support',
+  'developer',
+  'live',
+  'lists',
+  'communities',
+  'spaces',
+  'premium',
+  'verified',
+  'verified-choose',
+  'creator'
+]);
+
+/**
+ * Determines whether a URL or path represents a user profile page (https://x.com/${username})
+ */
+export function isProfilePage(urlOrPath) {
+  const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
+    .replace(/^https?:\/\/[^\/]+/, '')
+    .split('?')[0]
+    .split('#')[0];
+
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length === 0) return false;
+
+  const firstSegment = segments[0].toLowerCase();
+  if (RESERVED_ROUTES.has(firstSegment)) return false;
+
+  // Twitter username format: 1-15 characters, alphanumeric + underscore
+  if (!/^[a-z0-9_]{1,15}$/.test(firstSegment)) return false;
+
+  // A user profile page is /${username} or /${username}/${profileTab}
+  // E.g., /elonmusk, /elonmusk/with_replies, /elonmusk/highlights, /elonmusk/media, etc.
+  // Tweet status pages (/status/...) or deeper paths are excluded.
+  if (segments.length === 1) {
+    return true;
+  }
+  if (segments.length === 2 && segments[1].toLowerCase() !== 'status') {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Extracts username from User-Name links or text
  */
 export function extractUsernameFromLinks(links, textContent = '') {
-  const reserved = new Set(['home', 'explore', 'notifications', 'messages', 'i', 'settings', 'search', 'compose']);
-
   for (const href of links) {
     if (!href) continue;
     const path = href.replace(/^https?:\/\/[^\/]+/, '').split('?')[0].split('#')[0];
     const match = path.match(/^\/([A-Za-z0-9_]{1,15})$/);
     if (match) {
       const candidate = match[1].toLowerCase();
-      if (!reserved.has(candidate)) {
+      if (!RESERVED_ROUTES.has(candidate)) {
         return candidate;
       }
     }
@@ -423,3 +493,51 @@ test('ButtonStateMachine handles Follow and Unfollow transitions', async () => {
   assert.equal(actionCalled, 'FOLLOW');
   assert.equal(machine.state, 'FOLLOWING');
 });
+
+test('isProfilePage correctly identifies user profile pages and excludes others', () => {
+  // 1. Profile root pages (should be true)
+  assert.equal(isProfilePage('/elonmusk'), true);
+  assert.equal(isProfilePage('/elonmusk/'), true);
+  assert.equal(isProfilePage('https://x.com/elonmusk'), true);
+  assert.equal(isProfilePage('https://x.com/elonmusk/'), true);
+  assert.equal(isProfilePage('https://twitter.com/elonmusk'), true);
+  assert.equal(isProfilePage('https://x.com/elonmusk?mx=2'), true);
+  assert.equal(isProfilePage('/lxfater'), true);
+  assert.equal(isProfilePage('/sama'), true);
+  assert.equal(isProfilePage('/a_b_c_123'), true);
+
+  // 2. Profile tab pages (should be true)
+  assert.equal(isProfilePage('/elonmusk/with_replies'), true);
+  assert.equal(isProfilePage('/elonmusk/highlights'), true);
+  assert.equal(isProfilePage('/elonmusk/articles'), true);
+  assert.equal(isProfilePage('/elonmusk/media'), true);
+  assert.equal(isProfilePage('/elonmusk/likes'), true);
+  assert.equal(isProfilePage('/elonmusk/superfollows'), true);
+  assert.equal(isProfilePage('/elonmusk/followers'), true);
+  assert.equal(isProfilePage('/elonmusk/following'), true);
+  assert.equal(isProfilePage('https://x.com/elonmusk/with_replies'), true);
+
+  // 3. Tweet status and conversation pages (should be false)
+  assert.equal(isProfilePage('/elonmusk/status/18382746182947192'), false);
+  assert.equal(isProfilePage('https://x.com/elonmusk/status/18382746182947192'), false);
+  assert.equal(isProfilePage('https://twitter.com/elonmusk/status/18382746182947192'), false);
+  assert.equal(isProfilePage('/elonmusk/status/18382746182947192/photo/1'), false);
+  assert.equal(isProfilePage('/elonmusk/status/18382746182947192/likes'), false);
+
+  // 4. Non-profile timelines & system routes (should be false)
+  assert.equal(isProfilePage('/home'), false);
+  assert.equal(isProfilePage('/explore'), false);
+  assert.equal(isProfilePage('/notifications'), false);
+  assert.equal(isProfilePage('/messages'), false);
+  assert.equal(isProfilePage('/search?q=test'), false);
+  assert.equal(isProfilePage('/settings/account'), false);
+  assert.equal(isProfilePage('/i/bookmarks'), false);
+  assert.equal(isProfilePage('/i/lists/12345'), false);
+  assert.equal(isProfilePage('/i/communities/12345'), false);
+  assert.equal(isProfilePage('/i/grok'), false);
+  assert.equal(isProfilePage('/'), false);
+  assert.equal(isProfilePage(''), false);
+  assert.equal(isProfilePage(null), false);
+  assert.equal(isProfilePage(undefined), false);
+});
+
