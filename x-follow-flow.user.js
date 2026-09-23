@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.3
+// @version      0.5.4
 // @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with 2-step confirmation and instant state sync.
 // @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / •) 按钮，支持防误触二次确认与多卡同步。
 // @author       haorui
@@ -119,10 +119,10 @@
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
     `,
-    // Subtle, minimalist micro-dot (•) for Following (calm aesthetic matching X timeline)
+    // Subtle, minimalist micro-dot (•) for Following (soft and low-distraction)
     following: `
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-        <circle cx="12" cy="12" r="3" fill="currentColor"/>
+        <circle cx="12" cy="12" r="2.0" fill="currentColor"/>
       </svg>
     `,
     // Pure, sleek Minus (−) for Confirming Unfollow
@@ -767,7 +767,7 @@
         color: #1d9bf0;
       }
 
-      /* FOLLOWING (•): Neutral gray matching (+), turns Red on hover when (−) appears */
+      /* FOLLOWING (•): Soft, low-contrast dot that gracefully recedes into the background */
       .x-followflow-icon-btn.x-state-following {
         color: #71767b;
       }
@@ -776,6 +776,8 @@
         align-items: center;
         justify-content: center;
         line-height: 0;
+        opacity: 0.5;
+        transition: opacity 0.15s ease;
       }
       .x-followflow-icon-btn.x-state-following .x-icon-hover {
         display: none;
