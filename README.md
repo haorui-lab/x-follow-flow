@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.4-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.6-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-supported-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-supported-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -34,11 +34,11 @@ Browsing X's **For You** feed is one of the primary ways to discover new creator
 - ⚡ **Accurate Status Detection**:
   - Deep inspection of X's modern `relationship_perspectives.following` GraphQL schema.
   - Multi-layered React Fiber & Caret menu action tree verification.
-  - Real-time HoverCard sync & active feed heuristics.
-- 🛡️ **Two-Step Accidental Unfollow Protection**:
-  - Clicking a followed user (`•`) turns the icon into a red confirmation minus (`−`).
-  - Automatically reverts after 3 seconds if not clicked again.
-  - Second click confirms unfollow.
+  - HoverCard sync via follow/unfollow **buttons** (ignores misleading stats labels like "Following N").
+  - Following-tab hint is UI-only and skipped for reposts/social context so unfollowed authors stay as `+`.
+- 🛡️ **Hover-to-reveal Unfollow**:
+  - Followed users show a quiet micro-dot (`•`); hover reveals a red minus (`−`).
+  - One click on `−` / the following icon unfollows immediately (no second confirmation click).
 - 🔄 **Cross-Card State Synchronization**: If an author appears multiple times in your feed, following or unfollowing them on one post instantly synchronizes across all visible cards.
 - 👤 **Self-Post & Profile Filtering**: Automatically identifies your logged-in handle (never shown on your own posts) and cleanly disables buttons on user profile pages (`https://x.com/[username]`) where native follow controls are already prominent.
 - 🚀 **High Performance & Virtual Scroll Friendly**: Debounced `MutationObserver` with zero layout shifts, 60fps scrolling, and memory leak prevention.
@@ -51,8 +51,7 @@ Browsing X's **For You** feed is one of the primary ways to discover new creator
 | State | Icon | Style | Interaction |
 | :--- | :---: | :--- | :--- |
 | **Not Following** | `+` | Muted neutral gray, blue hover circle | Click to immediately **Follow** |
-| **Following** | `•` | Muted neutral gray micro-dot, red hover circle (turns to `−`) | Click to initiate **Unfollow confirmation** |
-| **Confirming** | `−` | Warning Red (`#f4212e`) with soft pulse | Click again within 3s to **Unfollow**; auto-reverts |
+| **Following** | `•` | Muted micro-dot; hover turns red `−` | Click (while `−` is shown) to **Unfollow** immediately |
 | **Loading** | ⟳ | Smooth rotating spinner | Action in progress (disabled) |
 
 ---
@@ -83,17 +82,16 @@ Click the link below to install directly with one click:
 
 👉 **[Install x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(If GitHub CDN serves a cached older version, use the [Commit-Specific Link](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.4) to bypass edge cache).*
+*(If GitHub CDN serves a cached older version, use the [versioned link](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.6) to bypass edge cache).*
 
 ---
 
 ## ⚙️ Configuration
 
-You can easily customize timeouts and labels by modifying the `CONFIG` object at the top of the userscript:
+You can tweak scan/action timing via the `CONFIG` object at the top of the userscript:
 
 ```javascript
 const CONFIG = {
-  confirmTimeoutMs: 3000,   // Unfollow confirmation timeout (ms)
   scanDebounceMs: 50,       // Timeline scroll debouncing interval (ms)
   maxCaretWaitMs: 800       // Native action simulation timeout (ms)
 };
@@ -120,7 +118,7 @@ const CONFIG = {
 │                              ▼                                  │
 │   ┌──────────────────────────────────────────────────────────┐  │
 │   │             UI Component (Action Bar Injection)          │  │
-│   │       [ + (Follow) ] ⇄ [ • (Following) ] ⇄ [ − (3s) ]    │  │
+│   │       [ + (Follow) ] ⇄ [ • (Following) / hover − ]       │  │
 │   └──────────────────────────┬───────────────────────────────┘  │
 │                              │ User click trigger               │
 │                              ▼                                  │
@@ -156,7 +154,8 @@ Test coverage includes:
 - Target-specific React Fiber & Caret action tree resolution
 - Handle and username DOM parsing
 - State manager pub/sub & multi-component synchronization
-- Button state machine (Follow, 2-step Unfollow, timeout rollback)
+- Button state machine (Follow, one-click Unfollow)
+- HoverCard button-based resolution & Following-tab / retweet heuristics
 
 ---
 

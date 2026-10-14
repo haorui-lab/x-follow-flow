@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.4-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.6-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-支持-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-支持-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -34,11 +34,11 @@
 - ⚡ **精准穿透的状态识别**：
   - 深度支持 X 现代 GraphQL `relationship_perspectives.following` 关系结构；
   - 严格限定作者 Handle 校验 React Fiber，彻底杜绝当前登录账号与 Mention 账户串扰误报；
-  - 接入 HoverCard 浮层实时同步与 Following 标签页上下文智能感知。
-- 🛡️ **防误触两步取关确认**：
-  - 点击已关注作者（`•`）后，图标变为红色告警减号（`−`），启动 3 秒安全倒计时；
-  - 3 秒内未再次点击自动恢复；
-  - 再次点击方才执行取关操作，彻底避免手滑误取关。
+  - HoverCard 只认关注/取关**按钮**（忽略「正在关注 N」这类统计文案，避免误判成已关注）；
+  - Following 标签页仅作弱 UI 提示，**转推/社交上下文不假定已关注**，未关注作者保持显示 `+`。
+- 🛡️ **悬停提示后一键取关**：
+  - 已关注显示克制小圆点（`•`），悬停变为红色减号（`−`）；
+  - 点击 `−` / 已关注图标即刻取关（不再需要第二次确认点击）。
 - 🔄 **全屏多卡片实时联动**：信息流中同一作者若有多条推文，在任一推文上操作，全屏所有该作者的卡片状态瞬间同步。
 - 👤 **本人与主页推文自动过滤**：自动识别登录账号（本人推文不显示按钮），并自动在个人主页（`https://x.com/[username]`）屏蔽按钮（主页顶部已自带显眼的原生关注/已关注按钮）。
 - 🚀 **极致性能与虚拟滚动优化**：防抖 MutationObserver 监听，平滑支撑 SPA 无限滚动，零布局抖动，零内存泄漏。
@@ -51,8 +51,7 @@
 | 状态 | 图标符号 | 视觉表现 | 交互行为 |
 | :--- | :---: | :--- | :--- |
 | **未关注** | `+` | 中性灰色加号，悬浮显示 Twitter 经典蓝圈 | 点击立即 **关注** |
-| **已关注** | `•` | 克制中性灰色微圆点（悬浮变红色 `−` 提示），低干扰融入推文流 | 点击启动 **防误触确认** |
-| **确认中** | `−` | 告警红色（`#f4212e`）减号，伴随微呼吸动画 | 3秒内再次点击 **取关**；超时自动复原 |
+| **已关注** | `•` | 克制微圆点；悬停变为红色 `−` | 点击（悬停显示 `−` 时）立即 **取关** |
 | **处理中** | ⟳ | 原生平滑旋转 Spinner | 禁用防连击 |
 
 ---
@@ -83,17 +82,16 @@
 
 👉 **[点击一键在线安装 x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.4))*。
+*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.6))*。
 
 ---
 
 ## ⚙️ 个性化配置
 
-脚本顶部提供了直观的配置对象 `CONFIG`，可自由微调超时与防抖：
+脚本顶部提供了配置对象 `CONFIG`，可微调扫描与操作超时：
 
 ```javascript
 const CONFIG = {
-  confirmTimeoutMs: 3000,   // 取关二次确认倒计时（毫秒）
   scanDebounceMs: 50,       // 时间线滚动防抖扫描间隔（毫秒）
   maxCaretWaitMs: 800       // 原生操作等待超时（毫秒）
 };
@@ -120,7 +118,7 @@ const CONFIG = {
 │                              ▼                                  │
 │   ┌──────────────────────────────────────────────────────────┐  │
 │   │           UI Component (分享按钮右侧原生图标注入)        │  │
-│   │       [ + (未关注) ] ⇄ [ • (已关注) ] ⇄ [ − (3秒确认) ]  │  │
+│   │       [ + (未关注) ] ⇄ [ • (已关注) / 悬停 − ]           │  │
 │   └──────────────────────────┬───────────────────────────────┘  │
 │                              │ 用户点击触发                     │
 │                              ▼                                  │
@@ -156,7 +154,8 @@ npm test
 - 目标绑定型 React Fiber 与 Caret 动作树深度解析
 - Handle 与用户名解析
 - FollowStateManager 订阅与多组件广播同步
-- ButtonStateMachine 关注、两步取关与超时回滚
+- ButtonStateMachine 关注、一键取关
+- HoverCard 按钮判定与 Following 标签 / 转推启发式
 
 ---
 

@@ -282,7 +282,74 @@ export class FollowStateManager {
 }
 
 /**
- * ButtonStateMachine simulates the button state transitions
+ * Detect retweet / social-context wrappers on a tweet article stub.
+ */
+export function hasTweetSocialContext(tweetArticle) {
+  if (!tweetArticle || typeof tweetArticle.querySelector !== 'function') return false;
+  if (tweetArticle.querySelector('[data-testid="socialContext"]')) return true;
+
+  const userName = tweetArticle.querySelector('[data-testid="User-Name"]');
+  const scanRoot = userName?.parentElement?.parentElement || userName?.parentElement;
+  if (!scanRoot) return false;
+  const text = (scanRoot.textContent || '').toLowerCase();
+  const markers = [
+    'reposted', 'retweeted', 'liked',
+    '转推了', '已转帖', '转帖了', '喜欢了',
+    'reposteado', 'a retweeté', 'がリポスト'
+  ];
+  return markers.some((m) => text.includes(m));
+}
+
+/**
+ * Following-tab hint must never apply to social-context tweets.
+ */
+export function shouldApplyFollowingTabHint(tweetArticle, followingTabActive) {
+  return Boolean(followingTabActive) && !hasTweetSocialContext(tweetArticle);
+}
+
+/**
+ * Resolve follow state from HoverCard DOM-like structure.
+ * Must ignore whole-card stats text ("Following" / "正在关注" counts).
+ */
+export function resolveHoverCardFollowState(hoverCard) {
+  if (!hoverCard || typeof hoverCard.querySelector !== 'function') return null;
+
+  const unfollowBtn = hoverCard.querySelector('[data-testid$="-unfollow"]');
+  if (unfollowBtn) return true;
+
+  if (typeof hoverCard.querySelectorAll === 'function') {
+    const followBtns = hoverCard.querySelectorAll('[data-testid]');
+    for (const el of followBtns) {
+      const id = (el.getAttribute && el.getAttribute('data-testid')) || el.dataset?.testid || '';
+      if (id.endsWith('-follow') && !id.endsWith('-unfollow')) {
+        return false;
+      }
+    }
+
+    const FOLLOWING_LABELS = new Set([
+      'following', '正在关注', 'unfollow', '取消关注',
+      'seguindo', 'abonné', 'フォロー中'
+    ]);
+    const NOT_FOLLOWING_LABELS = new Set([
+      'follow', '关注', 'follow back', '回关',
+      'seguir', 'suivre', 'フォロー'
+    ]);
+
+    const buttons = hoverCard.querySelectorAll('[role="button"], button');
+    for (const btn of buttons) {
+      const label = (btn.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!label) continue;
+      if (FOLLOWING_LABELS.has(label)) return true;
+      if (NOT_FOLLOWING_LABELS.has(label)) return false;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * ButtonStateMachine simulates the button state transitions.
+ * Unfollow is one-click: hover reveals −, click executes immediately.
  */
 export class ButtonStateMachine {
   constructor({ username, initialFollowing = false, initialPending = false, onAction, onStateChange }) {
@@ -290,8 +357,6 @@ export class ButtonStateMachine {
     this.state = initialPending ? 'PENDING' : (initialFollowing ? 'FOLLOWING' : 'NOT_FOLLOWING');
     this.onAction = onAction;
     this.onStateChange = onStateChange;
-    this.confirmTimer = null;
-    this.confirmTimeoutMs = 3000;
   }
 
   setState(newState) {
@@ -312,15 +377,6 @@ export class ButtonStateMachine {
         setTimeout(() => this.setState('NOT_FOLLOWING'), 1500);
       }
     } else if (this.state === 'FOLLOWING') {
-      this.setState('CONFIRMING_UNFOLLOW');
-      if (this.confirmTimer) clearTimeout(this.confirmTimer);
-      this.confirmTimer = setTimeout(() => {
-        if (this.state === 'CONFIRMING_UNFOLLOW') {
-          this.setState('FOLLOWING');
-        }
-      }, this.confirmTimeoutMs);
-    } else if (this.state === 'CONFIRMING_UNFOLLOW') {
-      if (this.confirmTimer) clearTimeout(this.confirmTimer);
       this.setState('UNFOLLOWING_IN_PROGRESS');
       const success = await this.onAction('UNFOLLOW');
       if (success) {
@@ -336,10 +392,6 @@ export class ButtonStateMachine {
     if (this.state === 'FOLLOWING_IN_PROGRESS' || this.state === 'UNFOLLOWING_IN_PROGRESS') {
       return;
     }
-    if (this.confirmTimer) {
-      clearTimeout(this.confirmTimer);
-      this.confirmTimer = null;
-    }
     if (pending) {
       this.setState('PENDING');
     } else if (following) {
@@ -349,12 +401,7 @@ export class ButtonStateMachine {
     }
   }
 
-  destroy() {
-    if (this.confirmTimer) {
-      clearTimeout(this.confirmTimer);
-      this.confirmTimer = null;
-    }
-  }
+  destroy() {}
 }
 
 // ==================== Tests ====================
@@ -464,7 +511,7 @@ test('FollowStateManager syncs updates to multiple subscribers', () => {
   unsubscribe();
 });
 
-test('ButtonStateMachine handles Follow and Unfollow transitions', async () => {
+test('ButtonStateMachine unfollows on a single click from FOLLOWING', async () => {
   let actionCalled = null;
 
   const machine = new ButtonStateMachine({
@@ -475,15 +522,10 @@ test('ButtonStateMachine handles Follow and Unfollow transitions', async () => {
       return true;
     }
   });
-  machine.confirmTimeoutMs = 50;
 
   assert.equal(machine.state, 'FOLLOWING');
 
-  // Step 1: Click once -> enter confirmation
-  await machine.handleClick();
-  assert.equal(machine.state, 'CONFIRMING_UNFOLLOW');
-
-  // Step 2: Click again -> unfollow
+  // One click on FOLLOWING (hover already shows −) -> unfollow immediately
   await machine.handleClick();
   assert.equal(actionCalled, 'UNFOLLOW');
   assert.equal(machine.state, 'NOT_FOLLOWING');
@@ -492,6 +534,118 @@ test('ButtonStateMachine handles Follow and Unfollow transitions', async () => {
   await machine.handleClick();
   assert.equal(actionCalled, 'FOLLOW');
   assert.equal(machine.state, 'FOLLOWING');
+});
+
+test('Following-tab hint skips retweets and never treats social context as followed', () => {
+  function makeTweet({ hasSocialContextTestId = false, headerText = '' }) {
+    const userName = {
+      textContent: 'Author @b',
+      parentElement: {
+        parentElement: { textContent: headerText }
+      }
+    };
+    return {
+      querySelector(sel) {
+        if (sel === '[data-testid="socialContext"]') {
+          return hasSocialContextTestId ? { textContent: 'A reposted' } : null;
+        }
+        if (sel === '[data-testid="User-Name"]') return userName;
+        return null;
+      }
+    };
+  }
+
+  const original = makeTweet({ headerText: 'Author @b · 2h' });
+  const retweetByTestId = makeTweet({
+    hasSocialContextTestId: true,
+    headerText: 'Friend reposted Author @b'
+  });
+  const retweetByCopy = makeTweet({ headerText: '好友 转推了 Author @b' });
+
+  assert.equal(hasTweetSocialContext(original), false);
+  assert.equal(hasTweetSocialContext(retweetByTestId), true);
+  assert.equal(hasTweetSocialContext(retweetByCopy), true);
+
+  // On Following tab: original may use weak hint; retweet must not
+  assert.equal(shouldApplyFollowingTabHint(original, true), true);
+  assert.equal(shouldApplyFollowingTabHint(retweetByTestId, true), false);
+  assert.equal(shouldApplyFollowingTabHint(retweetByCopy, true), false);
+
+  // Off Following tab: never hint
+  assert.equal(shouldApplyFollowingTabHint(original, false), false);
+  assert.equal(shouldApplyFollowingTabHint(retweetByTestId, false), false);
+});
+
+test('resolveHoverCardFollowState uses buttons, ignores stats labels', () => {
+  function makeHoverCard({ testIds = [], buttonTexts = [], bodyText = '' }) {
+    const testIdEls = testIds.map((id) => ({
+      getAttribute: (name) => (name === 'data-testid' ? id : null),
+      dataset: { testid: id },
+      textContent: ''
+    }));
+    const buttonEls = buttonTexts.map((text) => ({
+      getAttribute: () => null,
+      textContent: text
+    }));
+
+    return {
+      textContent: bodyText,
+      querySelector(sel) {
+        if (sel === '[data-testid$="-unfollow"]') {
+          return testIdEls.find((el) => el.getAttribute('data-testid').endsWith('-unfollow')) || null;
+        }
+        return null;
+      },
+      querySelectorAll(sel) {
+        if (sel === '[data-testid]') return testIdEls;
+        if (sel === '[role="button"], button') return buttonEls;
+        return [];
+      }
+    };
+  }
+
+  // Bug repro: "关注" button + stats "正在关注 12" must NOT be treated as following
+  assert.equal(
+    resolveHoverCardFollowState(
+      makeHoverCard({
+        testIds: ['12345-follow'],
+        bodyText: 'kodo @tarik06784901 关注者 3 正在关注 12 关注'
+      })
+    ),
+    false
+  );
+
+  assert.equal(
+    resolveHoverCardFollowState(
+      makeHoverCard({
+        testIds: ['12345-unfollow'],
+        bodyText: 'Someone 关注者 10 正在关注 5 正在关注'
+      })
+    ),
+    true
+  );
+
+  // Fallback: exact button label only
+  assert.equal(
+    resolveHoverCardFollowState(
+      makeHoverCard({
+        buttonTexts: ['关注'],
+        bodyText: '关注者 1 正在关注 2'
+      })
+    ),
+    false
+  );
+
+  // Stats text alone must not decide
+  assert.equal(
+    resolveHoverCardFollowState(
+      makeHoverCard({
+        buttonTexts: [],
+        bodyText: '关注者 1 正在关注 2 Following 3'
+      })
+    ),
+    null
+  );
 });
 
 test('isProfilePage correctly identifies user profile pages and excludes others', () => {

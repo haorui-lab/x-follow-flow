@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.4
-// @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with 2-step confirmation and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / •) 按钮，支持防误触二次确认与多卡同步。
+// @version      0.5.6
+// @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with hover-to-confirm unfollow and instant state sync.
+// @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / •) 按钮，悬停显示 − 后单击即可取关，并支持多卡状态同步。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -24,7 +24,6 @@
   // Configuration
   // ==========================================
   const CONFIG = {
-    confirmTimeoutMs: 3000,
     scanDebounceMs: 50,
     maxCaretWaitMs: 800
   };
@@ -355,6 +354,37 @@
     return false;
   }
 
+  /**
+   * Retweets / liked / followed-you contexts surface another user's tweet.
+   * The timeline author is NOT necessarily someone you follow — even on Following tab.
+   */
+  function hasTweetSocialContext(tweetArticle) {
+    if (!tweetArticle || typeof tweetArticle.querySelector !== 'function') return false;
+    if (tweetArticle.querySelector('[data-testid="socialContext"]')) return true;
+
+    // Fallback when testid is missing: scan near the author header only (avoid post body)
+    const userName = tweetArticle.querySelector('[data-testid="User-Name"]');
+    const scanRoot = userName?.parentElement?.parentElement || userName?.parentElement;
+    if (!scanRoot) return false;
+    const text = (scanRoot.textContent || '').toLowerCase();
+    const markers = [
+      'reposted', 'retweeted', 'liked',
+      '转推了', '已转帖', '转帖了', '喜欢了',
+      'reposteado', 'a retweeté', 'がリポスト'
+    ];
+    return markers.some((m) => text.includes(m));
+  }
+
+  /**
+   * Following-tab heuristic is UI-only and never authoritative.
+   * Skip entirely for social-context tweets (repost of unfollowed author, etc.).
+   */
+  function shouldApplyFollowingTabHint(tweetArticle, followingTabActive) {
+    const onFollowingTab =
+      typeof followingTabActive === 'boolean' ? followingTabActive : isFollowingTabActive();
+    return onFollowingTab && !hasTweetSocialContext(tweetArticle);
+  }
+
   function extractUsernameFromTweet(tweetArticle) {
     const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
     if (!userNameEl) return null;
@@ -477,6 +507,47 @@
     return null;
   }
 
+  /**
+   * Resolve follow state from a HoverCard.
+   * Prefer data-testid buttons. Never use whole-card text — labels like
+   * "Following" / "正在关注" (follower stats) caused false "already following".
+   */
+  function resolveHoverCardFollowState(hoverCard) {
+    if (!hoverCard) return null;
+
+    const unfollowBtn = hoverCard.querySelector('[data-testid$="-unfollow"]');
+    if (unfollowBtn) return true;
+
+    // "-follow" does not match "-unfollow" (suffix check), but guard anyway
+    const followBtns = hoverCard.querySelectorAll('[data-testid]');
+    for (const el of followBtns) {
+      const id = el.getAttribute('data-testid') || '';
+      if (id.endsWith('-follow') && !id.endsWith('-unfollow')) {
+        return false;
+      }
+    }
+
+    // Fallback: exact button label only (not stats links / whole card text)
+    const FOLLOWING_LABELS = new Set([
+      'following', '正在关注', 'unfollow', '取消关注',
+      'seguindo', 'abonné', 'フォロー中'
+    ]);
+    const NOT_FOLLOWING_LABELS = new Set([
+      'follow', '关注', 'follow back', '回关',
+      'seguir', 'suivre', 'フォロー'
+    ]);
+
+    const buttons = hoverCard.querySelectorAll('[role="button"], button');
+    for (const btn of buttons) {
+      const label = (btn.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!label) continue;
+      if (FOLLOWING_LABELS.has(label)) return true;
+      if (NOT_FOLLOWING_LABELS.has(label)) return false;
+    }
+
+    return null;
+  }
+
   function initHoverCardObserver() {
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
@@ -489,16 +560,9 @@
               const match = href.match(/^\/([A-Za-z0-9_]{1,15})/);
               if (match) {
                 const username = match[1].toLowerCase();
-                const isUnfollowBtn = hoverCard.querySelector('[data-testid$="-unfollow"]');
-                const isFollowBtn = hoverCard.querySelector('[data-testid$="-follow"]');
-                const text = hoverCard.textContent || '';
-                const isFollowing = Boolean(isUnfollowBtn) || text.includes('正在关注') || text.includes('Following');
-                const isNotFollowing = Boolean(isFollowBtn) || (text.includes('关注') && !text.includes('正在关注'));
-
-                if (isFollowing) {
-                  stateManager.set(username, { following: true, pending: false });
-                } else if (isNotFollowing) {
-                  stateManager.set(username, { following: false, pending: false });
+                const following = resolveHoverCardFollowState(hoverCard);
+                if (following !== null) {
+                  stateManager.set(username, { following, pending: false });
                 }
               }
             }
@@ -799,20 +863,6 @@
         color: #f4212e;
       }
 
-      /* CONFIRMING UNFOLLOW (−): Red warning with subtle red hover circle */
-      .x-followflow-icon-btn.x-state-confirm {
-        color: #f4212e;
-      }
-      .x-followflow-icon-btn.x-state-confirm .x-followflow-icon-wrapper {
-        background-color: rgba(244, 33, 46, 0.15);
-        color: #f4212e;
-        animation: x-follow-pulse 1s infinite alternate;
-      }
-      @keyframes x-follow-pulse {
-        from { transform: scale(1); }
-        to { transform: scale(1.08); }
-      }
-
       /* LOADING SPINNER */
       .x-followflow-icon-btn.x-state-loading {
         cursor: wait;
@@ -858,7 +908,6 @@
     container.appendChild(btn);
 
     let currentState = initialPending ? 'PENDING' : (initialFollowing ? 'FOLLOWING' : 'NOT_FOLLOWING');
-    let confirmTimer = null;
 
     function renderUI() {
       btn.className = 'x-followflow-icon-btn';
@@ -870,7 +919,7 @@
         btn.title = `+ 关注 @${username}`;
       } else if (currentState === 'FOLLOWING') {
         btn.classList.add('x-state-following');
-        // Normal state: Micro-dot (•); Hover state: Minus (−)
+        // Normal: Micro-dot (•); Hover: Minus (−). Click while hovered (−) unfollows immediately.
         const normalSpan = document.createElement('span');
         normalSpan.className = 'x-icon-normal';
         normalSpan.innerHTML = ICONS.following;
@@ -881,11 +930,7 @@
 
         wrapper.appendChild(normalSpan);
         wrapper.appendChild(hoverSpan);
-        btn.title = `● 已关注 @${username} (点击可取消关注)`;
-      } else if (currentState === 'CONFIRMING_UNFOLLOW') {
-        btn.classList.add('x-state-confirm');
-        wrapper.innerHTML = ICONS.unfollowConfirm;
-        btn.title = `再次点击确认取消关注 @${username}`;
+        btn.title = `● 已关注 @${username}（悬停显示 −，点击取消关注）`;
       } else if (currentState === 'LOADING') {
         btn.classList.add('x-state-loading');
         wrapper.innerHTML = ICONS.loading;
@@ -926,17 +971,7 @@
         }
         renderUI();
       } else if (currentState === 'FOLLOWING') {
-        currentState = 'CONFIRMING_UNFOLLOW';
-        renderUI();
-        if (confirmTimer) clearTimeout(confirmTimer);
-        confirmTimer = setTimeout(() => {
-          if (currentState === 'CONFIRMING_UNFOLLOW') {
-            currentState = 'FOLLOWING';
-            renderUI();
-          }
-        }, CONFIG.confirmTimeoutMs);
-      } else if (currentState === 'CONFIRMING_UNFOLLOW') {
-        if (confirmTimer) clearTimeout(confirmTimer);
+        // Hover already reveals − as the affordance; one click unfollows immediately.
         currentState = 'LOADING';
         renderUI();
         const success = await executeFollowToggle(tweetElement, username, false);
@@ -963,11 +998,6 @@
     const unsubscribe = stateManager.subscribe((changedUsername, state) => {
       if (changedUsername !== username) return;
       if (currentState === 'LOADING') return;
-
-      if (confirmTimer) {
-        clearTimeout(confirmTimer);
-        confirmTimer = null;
-      }
 
       if (state.pending) {
         currentState = 'PENDING';
@@ -1130,17 +1160,16 @@
       }
     }
 
-    // C. Check Active Tab: in Following tab, default is true
-    if (!resolved && isFollowingTabActive()) {
+    // C. Following tab: weak UI hint ONLY — never mark resolved, never write cache.
+    // Retweets/social context must not assume the embedded author is followed.
+    if (!resolved && shouldApplyFollowingTabHint(tweetArticle)) {
       following = true;
-      resolved = true;
-      stateManager.set(author, { following: true, pending: false });
     }
 
     const buttonContainer = createFollowIconButton(tweetArticle, author, following, pending);
     insertFollowIcon(tweetArticle, buttonContainer);
 
-    // D. If still not resolved with 100% confidence, run silent peek
+    // D. If still not resolved with 100% confidence, run silent peek / re-inspect
     if (!resolved) {
       setTimeout(async () => {
         if (!tweetArticle.isConnected) return;
