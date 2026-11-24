@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.6
+// @version      0.5.7
 // @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with hover-to-confirm unfollow and instant state sync.
 // @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / •) 按钮，悬停显示 − 后单击即可取关，并支持多卡状态同步。
 // @author       haorui
@@ -95,6 +95,178 @@
     }
 
     return false;
+  }
+
+  const PROFILE_LABELS = new Set([
+    'profile',
+    '个人资料',
+    '個人資料',
+    'プロフィール',
+    'perfil',
+    'profil',
+    'profilo',
+    '프로필',
+    'profiel',
+    'profilim',
+    'hồ sơ',
+    'профиль'
+  ]);
+
+  const MORE_LABELS = new Set([
+    'more',
+    '更多',
+    '更多选项',
+    '更多選項',
+    'その他',
+    'más',
+    'mas',
+    'mehr',
+    'plus',
+    'altro',
+    'meer',
+    'mais',
+    '더보기',
+    'ещё',
+    'еще',
+    'więcej'
+  ]);
+
+  const UNFOLLOW_CONFIRM_LABELS = [
+    'unfollow',
+    '取消关注',
+    '取消關注',
+    'dejar de seguir',
+    'ne plus suivre',
+    'フォロー解除',
+    '언팔로우',
+    'entfolgen',
+    'smetti di seguire',
+    'deixar de seguir',
+    'parar de seguir',
+    'berhenti mengikuti',
+    'отписаться'
+  ];
+
+  function usernameFromHref(href) {
+    if (!href) return null;
+    const path = String(href).replace(/^https?:\/\/[^/]+/, '').split('?')[0].split('#')[0];
+    const match = path.match(/^\/([A-Za-z0-9_]{1,15})$/);
+    if (!match) return null;
+    const candidate = match[1].toLowerCase();
+    if (RESERVED_ROUTES.has(candidate)) return null;
+    return candidate;
+  }
+
+  function usernameFromAlt(alt) {
+    const match = String(alt || '').trim().match(/^@([A-Za-z0-9_]{1,15})$/);
+    if (!match) return null;
+    const candidate = match[1].toLowerCase();
+    if (RESERVED_ROUTES.has(candidate)) return null;
+    return candidate;
+  }
+
+  function readScreenName(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    const legacy = obj.legacy || {};
+    const core = obj.core || {};
+    return String(core.screen_name || legacy.screen_name || obj.screen_name || '').toLowerCase();
+  }
+
+  /**
+   * First match that belongs to this article, not a quoted article nested inside it.
+   */
+  function queryOwn(root, selector) {
+    if (!root || typeof root.querySelector !== 'function') return null;
+    if (typeof root.querySelectorAll !== 'function') return root.querySelector(selector);
+
+    const nodes = root.querySelectorAll(selector);
+    for (const el of nodes) {
+      const owner = typeof el.closest === 'function' ? el.closest('article') : null;
+      if (owner && typeof root.matches === 'function' && root.matches('article') && owner !== root) continue;
+      return el;
+    }
+    return null;
+  }
+
+  function isTimelinePost(article) {
+    if (!article || typeof article.querySelector !== 'function') return false;
+    if (typeof article.matches === 'function' && article.matches('article[data-testid="tweet"]')) return true;
+    if (queryOwn(article, '[data-engagement-action="share"], [data-engagement-action="reply"], [data-testid="reply"], [data-testid="like"], [data-testid="share"]')) {
+      return true;
+    }
+    if (queryOwn(article, '[data-post-avatar], div[data-testid="User-Name"]')) return true;
+    return false;
+  }
+
+  function collectTimelinePosts(root) {
+    const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+    const posts = [];
+    const articles = scope.querySelectorAll('article');
+    for (const article of articles) {
+      if (isTimelinePost(article)) posts.push(article);
+    }
+    return posts;
+  }
+
+  function isMoreLabel(label) {
+    const text = String(label || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!text) return false;
+    if (/show more|显示更多|顯示更多|もっと見る|ver más|mehr anzeigen|voir plus|see more/.test(text)) return false;
+    return MORE_LABELS.has(text);
+  }
+
+  function findCaretButton(root) {
+    if (!root || typeof root.querySelector !== 'function') return null;
+    const legacy = root.querySelector('button[data-testid="caret"]');
+    if (legacy) return legacy;
+
+    try {
+      const iconButtons = root.querySelectorAll('button:has(use[href="#icon-more-dots-hor"])');
+      for (const icon of iconButtons) {
+        if (icon.closest && icon.closest('[role="group"]')) continue;
+        return icon;
+      }
+    } catch (e) {}
+
+    const buttons = root.querySelectorAll('button[aria-label], button[aria-haspopup="menu"], button[data-slot="xds-menu-trigger"]');
+    let fallback = null;
+    for (const btn of buttons) {
+      if (btn.closest && btn.closest('[role="group"], [data-engagement-action], .whitespace-pre-wrap')) continue;
+      if (isMoreLabel(btn.getAttribute('aria-label'))) return btn;
+      if (!fallback && (btn.getAttribute('aria-haspopup') === 'menu' || btn.getAttribute('data-slot') === 'xds-menu-trigger')) {
+        fallback = btn;
+      }
+    }
+    return fallback;
+  }
+
+  function findOpenMenu() {
+    return document.querySelector('div[role="menu"], [role="menu"], div[data-testid="Dropdown"]');
+  }
+
+  function findConfirmButton() {
+    const legacy = document.querySelector('[data-testid="confirmationSheetConfirm"]');
+    if (legacy) return legacy;
+
+    const modals = document.querySelectorAll('[data-slot="xds-modal-surface"], [role="dialog"], [role="alertdialog"]');
+    for (const modal of modals) {
+      const modalText = (modal.textContent || '').toLowerCase();
+      const talksAboutUnfollow = UNFOLLOW_CONFIRM_LABELS.some((item) => modalText.includes(item.toLowerCase()));
+      if (!talksAboutUnfollow) continue;
+
+      const buttons = modal.querySelectorAll('button, [role="button"]');
+      for (const btn of buttons) {
+        const label = (btn.getAttribute('aria-label') || btn.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!label) continue;
+        if (UNFOLLOW_CONFIRM_LABELS.some((item) => label === item.toLowerCase() || label.includes(item.toLowerCase()))) {
+          return btn;
+        }
+      }
+
+      const footerButtons = modal.querySelectorAll('[data-slot="xds-modal-footer-actions"] button, [data-slot="xds-modal-footer"] button');
+      if (footerButtons.length) return footerButtons[footerButtons.length - 1];
+    }
+    return null;
   }
 
   function removeAllFollowIcons() {
@@ -209,7 +381,7 @@
     const isUserObj = data.__typename === 'User' || (data.rest_id && (data.legacy || data.relationship_perspectives));
     if (isUserObj) {
       const legacy = data.legacy || {};
-      const screenName = (legacy.screen_name || data.screen_name || '').toLowerCase();
+      const screenName = readScreenName(data);
       if (screenName) {
         const existing = stateManager.get(screenName) || {};
 
@@ -321,20 +493,48 @@
     const profileLink = document.querySelector('a[data-testid="AppTabBar_Profile_Link"]');
     if (profileLink) {
       const href = profileLink.getAttribute('href');
-      if (href && href.startsWith('/')) {
-        const user = href.slice(1).split('/')[0].split('?')[0].toLowerCase();
-        if (user && user !== 'profile') {
+      const user = usernameFromHref(href) || (href && href.startsWith('/') ? href.slice(1).split('/')[0].split('?')[0].toLowerCase() : '');
+      if (user && user !== 'profile' && !RESERVED_ROUTES.has(user)) {
+        cachedCurrentUser = user;
+        return user;
+      }
+    }
+
+    const switcher = document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]');
+    if (switcher) {
+      const text = switcher.textContent || '';
+      const match = text.match(/@([A-Za-z0-9_]{1,15})/);
+      if (match) {
+        cachedCurrentUser = match[1].toLowerCase();
+        return cachedCurrentUser;
+      }
+    }
+
+    // Rebuilt X web: the profile nav item is a normal link labeled "Profile" / "个人资料".
+    const scopes = [];
+    const dock = document.querySelector('[data-slot="xds-dock"]');
+    if (dock) scopes.push(dock);
+    document.querySelectorAll('nav, header, [role="banner"]').forEach((el) => scopes.push(el));
+    if (!scopes.length) scopes.push(document.body);
+
+    for (const scope of scopes) {
+      if (!scope || typeof scope.querySelectorAll !== 'function') continue;
+      const anchors = scope.querySelectorAll('a[href^="/"]');
+      for (const anchor of anchors) {
+        const label = (anchor.getAttribute('aria-label') || anchor.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!PROFILE_LABELS.has(label)) continue;
+        const user = usernameFromHref(anchor.getAttribute('href'));
+        if (user) {
           cachedCurrentUser = user;
           return user;
         }
       }
     }
 
-    const switcher = document.querySelector('div[data-testid="SideNav_AccountSwitcher_Button"]');
-    if (switcher) {
-      const text = switcher.textContent || '';
-      const match = text.match(/@([A-Za-z0-9_]{1,15})/);
-      if (match) {
+    const accountScope = dock || document.querySelector('header');
+    if (accountScope) {
+      const match = (accountScope.innerText || accountScope.textContent || '').match(/@([A-Za-z0-9_]{1,15})/);
+      if (match && !RESERVED_ROUTES.has(match[1].toLowerCase())) {
         cachedCurrentUser = match[1].toLowerCase();
         return cachedCurrentUser;
       }
@@ -362,8 +562,18 @@
     if (!tweetArticle || typeof tweetArticle.querySelector !== 'function') return false;
     if (tweetArticle.querySelector('[data-testid="socialContext"]')) return true;
 
+    // New app: a repost/like context icon sits above the author, outside the action bar.
+    if (typeof tweetArticle.querySelectorAll === 'function') {
+      const icons = tweetArticle.querySelectorAll('svg[data-icon="icon-repost"], svg[data-icon="icon-heart"]');
+      for (const icon of icons) {
+        if (typeof icon.closest === 'function' && icon.closest('[role="group"], [data-engagement-action]')) continue;
+        return true;
+      }
+    }
+
     // Fallback when testid is missing: scan near the author header only (avoid post body)
-    const userName = tweetArticle.querySelector('[data-testid="User-Name"]');
+    const userName = tweetArticle.querySelector('[data-testid="User-Name"]')
+      || tweetArticle.querySelector('.x-middot-group');
     const scanRoot = userName?.parentElement?.parentElement || userName?.parentElement;
     if (!scanRoot) return false;
     const text = (scanRoot.textContent || '').toLowerCase();
@@ -386,25 +596,29 @@
   }
 
   function extractUsernameFromTweet(tweetArticle) {
-    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
-    if (!userNameEl) return null;
+    if (!tweetArticle || typeof tweetArticle.querySelector !== 'function') return null;
 
-    const links = userNameEl.querySelectorAll('a[role="link"][href^="/"]');
+    const avatarImg = queryOwn(tweetArticle, '[data-post-avatar] img[alt^="@"]');
+    const fromAlt = usernameFromAlt(avatarImg?.getAttribute?.('alt') || avatarImg?.alt);
+    if (fromAlt) return fromAlt;
+
+    const avatarLink = queryOwn(tweetArticle, '[data-post-avatar] a[href]');
+    const fromAvatar = usernameFromHref(avatarLink?.getAttribute?.('href') || '');
+    if (fromAvatar) return fromAvatar;
+
+    const userNameEl = queryOwn(tweetArticle, 'div[data-testid="User-Name"]')
+      || queryOwn(tweetArticle, '.x-middot-group');
+    if (!userNameEl || typeof userNameEl.querySelectorAll !== 'function') return null;
+
+    const links = userNameEl.querySelectorAll('a[href]');
     for (const link of links) {
-      const href = link.getAttribute('href') || '';
-      const path = href.replace(/^https?:\/\/[^\/]+/, '').split('?')[0].split('#')[0];
-      const match = path.match(/^\/([A-Za-z0-9_]{1,15})$/);
-      if (match) {
-        const candidate = match[1].toLowerCase();
-        if (!RESERVED_ROUTES.has(candidate)) {
-          return candidate;
-        }
-      }
+      const user = usernameFromHref(link.getAttribute('href') || '');
+      if (user) return user;
     }
 
     const text = userNameEl.textContent || '';
     const handleMatch = text.match(/@([A-Za-z0-9_]{1,15})/);
-    if (handleMatch) {
+    if (handleMatch && !RESERVED_ROUTES.has(handleMatch[1].toLowerCase())) {
       return handleMatch[1].toLowerCase();
     }
 
@@ -419,7 +633,7 @@
     const target = (targetAuthor || '').toLowerCase();
     const legacy = obj.legacy;
     const rel = obj.relationship_perspectives;
-    const screenName = (legacy?.screen_name || obj.screen_name || '').toLowerCase();
+    const screenName = readScreenName(obj);
 
     if (screenName && screenName === target) {
       let following = undefined;
@@ -548,18 +762,52 @@
     return null;
   }
 
+  function findHoverCardRoot(node) {
+    if (!node || node.nodeType !== 1 || typeof node.matches !== 'function') return null;
+    if (node.matches('[data-testid="HoverCard"]')) return node;
+    const legacy = typeof node.querySelector === 'function' ? node.querySelector('[data-testid="HoverCard"]') : null;
+    if (legacy) return legacy;
+
+    const candidates = [];
+    if (node.matches('[data-base-ui-portal], [role="presentation"][data-side]')) candidates.push(node);
+    if (typeof node.querySelectorAll === 'function') {
+      node.querySelectorAll('[data-base-ui-portal], [role="presentation"][data-side]').forEach((el) => candidates.push(el));
+    }
+    for (const card of candidates) {
+      if (card.querySelector && card.querySelector('img[alt^="@"], a[href^="/"]')) return card;
+    }
+    return null;
+  }
+
+  function usernameFromHoverCard(hoverCard) {
+    const img = hoverCard.querySelector && hoverCard.querySelector('img[alt^="@"]');
+    const fromAlt = usernameFromAlt(img?.getAttribute?.('alt') || img?.alt);
+    if (fromAlt) return fromAlt;
+
+    const links = hoverCard.querySelectorAll ? hoverCard.querySelectorAll('a[href^="/"]') : [];
+    for (const link of links) {
+      const exact = usernameFromHref(link.getAttribute('href') || '');
+      if (exact) return exact;
+    }
+    for (const link of links) {
+      const href = link.getAttribute('href') || '';
+      const match = href.match(/^\/([A-Za-z0-9_]{1,15})(?:\/|$)/);
+      if (!match) continue;
+      const candidate = match[1].toLowerCase();
+      if (!RESERVED_ROUTES.has(candidate)) return candidate;
+    }
+    return null;
+  }
+
   function initHoverCardObserver() {
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            const hoverCard = node.matches && (node.matches('[data-testid="HoverCard"]') ? node : node.querySelector('[data-testid="HoverCard"]'));
+            const hoverCard = findHoverCardRoot(node);
             if (hoverCard) {
-              const userLink = hoverCard.querySelector('a[href^="/"][role="link"]');
-              const href = userLink?.getAttribute('href') || '';
-              const match = href.match(/^\/([A-Za-z0-9_]{1,15})/);
-              if (match) {
-                const username = match[1].toLowerCase();
+              const username = usernameFromHoverCard(hoverCard);
+              if (username) {
                 const following = resolveHoverCardFollowState(hoverCard);
                 if (following !== null) {
                   stateManager.set(username, { following, pending: false });
@@ -578,7 +826,7 @@
   }
 
   async function peekCaretFollowState(tweetElement, username) {
-    const caret = tweetElement.querySelector('button[data-testid="caret"]');
+    const caret = findCaretButton(tweetElement);
     if (!caret) return null;
 
     document.body.classList.add('x-follow-silent-mode');
@@ -587,7 +835,7 @@
       let menu = null;
       const start = Date.now();
       while (Date.now() - start < 200) {
-        menu = document.querySelector('div[role="menu"], div[data-testid="Dropdown"]');
+        menu = findOpenMenu();
         if (menu) break;
         await sleep(20);
       }
@@ -626,13 +874,18 @@
 
   function triggerClick(element) {
     if (!element) return;
-    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    const opts = { bubbles: true, cancelable: true, view: window };
+    if (typeof PointerEvent === 'function') {
+      element.dispatchEvent(new PointerEvent('pointerdown', opts));
+      element.dispatchEvent(new PointerEvent('pointerup', opts));
+    }
+    element.dispatchEvent(new MouseEvent('mousedown', opts));
+    element.dispatchEvent(new MouseEvent('mouseup', opts));
     element.click();
   }
 
   async function executeActionViaCaret(tweetElement, username, isFollow) {
-    const caret = tweetElement.querySelector('button[data-testid="caret"]');
+    const caret = findCaretButton(tweetElement);
     if (!caret) return false;
 
     document.body.classList.add('x-follow-silent-mode');
@@ -643,7 +896,7 @@
       let menu = null;
       const start = Date.now();
       while (Date.now() - start < CONFIG.maxCaretWaitMs) {
-        menu = document.querySelector('div[role="menu"], div[data-testid="Dropdown"]');
+        menu = findOpenMenu();
         if (menu) break;
         await sleep(40);
       }
@@ -653,7 +906,7 @@
         return false;
       }
 
-      const menuItems = Array.from(menu.querySelectorAll('[role="menuitem"], div[tabindex="0"]'));
+      const menuItems = Array.from(menu.querySelectorAll('[role="menuitem"], [role="menuitemradio"], button, a, div[tabindex="0"]'));
       let targetItem = null;
 
       for (const item of menuItems) {
@@ -687,7 +940,7 @@
       if (!isFollow) {
         const confirmStart = Date.now();
         while (Date.now() - confirmStart < CONFIG.maxCaretWaitMs) {
-          const confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
+          const confirmBtn = findConfirmButton();
           if (confirmBtn) {
             triggerClick(confirmBtn);
             break;
@@ -709,9 +962,13 @@
     const ct0 = getCookie('ct0');
     if (!ct0) return false;
 
-    const endpoint = isFollow
-      ? 'https://x.com/i/api/1.1/friendships/create.json'
-      : 'https://x.com/i/api/1.1/friendships/destroy.json';
+    const path = isFollow ? 'friendships/create.json' : 'friendships/destroy.json';
+    // Legacy web posts to x.com/i/api. The rebuilt client posts to api.x.com/1.1.
+    const endpoints = [
+      `https://x.com/i/api/1.1/${path}`,
+      `https://api.x.com/1.1/${path}`,
+      `https://twitter.com/i/api/1.1/${path}`
+    ];
 
     const params = new URLSearchParams();
     if (restId) {
@@ -719,24 +976,24 @@
     }
     params.append('screen_name', username);
 
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          'x-csrf-token': ct0,
-          'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-          'x-twitter-active-user': 'yes',
-          'x-twitter-auth-type': 'OAuth2Session'
-        },
-        body: params.toString(),
-        credentials: 'include'
-      });
-
-      return response.ok;
-    } catch (e) {
-      return false;
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+            'x-csrf-token': ct0,
+            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+            'x-twitter-active-user': 'yes',
+            'x-twitter-auth-type': 'OAuth2Session'
+          },
+          body: params.toString(),
+          credentials: 'include'
+        });
+        if (response.ok) return true;
+      } catch (e) {}
     }
+    return false;
   }
 
   async function executeFollowToggle(tweetElement, username, targetFollowState) {
@@ -769,10 +1026,15 @@
     style.id = 'x-followflow-styles';
     style.textContent = `
       body.x-follow-silent-mode div[role="menu"],
+      body.x-follow-silent-mode [role="menu"],
       body.x-follow-silent-mode div[data-testid="Dropdown"],
       body.x-follow-silent-mode div[data-testid="confirmationSheetDialog"],
       body.x-follow-silent-mode div[data-testid="sheetDialog"],
-      body.x-follow-silent-mode div[data-testid="mask"] {
+      body.x-follow-silent-mode div[data-testid="mask"],
+      body.x-follow-silent-mode [role="dialog"],
+      body.x-follow-silent-mode [role="alertdialog"],
+      body.x-follow-silent-mode [data-slot="xds-modal-surface"],
+      body.x-follow-silent-mode [data-slot="xds-modal-backdrop"] {
         opacity: 0 !important;
         pointer-events: auto !important;
         transition: none !important;
@@ -785,6 +1047,8 @@
         justify-content: center;
         flex-shrink: 0;
         user-select: none;
+        position: relative;
+        z-index: 2;
       }
 
       /* Base Icon Button: Exactly matching native action bar button (no outer border) */
@@ -897,6 +1161,7 @@
     const container = document.createElement('div');
     container.className = 'x-followflow-container';
     container.setAttribute('data-x-author', username);
+    container.setAttribute('data-navigation-stop', '');
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -994,6 +1259,10 @@
 
     btn.addEventListener('mousedown', (e) => e.stopPropagation());
     btn.addEventListener('mouseup', (e) => e.stopPropagation());
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btn.addEventListener('pointerup', (e) => e.stopPropagation());
+    container.addEventListener('click', (e) => e.stopPropagation());
+    container.addEventListener('pointerdown', (e) => e.stopPropagation());
 
     const unsubscribe = stateManager.subscribe((changedUsername, state) => {
       if (changedUsername !== username) return;
@@ -1024,72 +1293,92 @@
   // ==========================================
   // 6. Placement (Directly to the RIGHT of Share)
   // ==========================================
+  function findActionBar(tweetArticle) {
+    const bars = [];
+    if (typeof tweetArticle.querySelectorAll === 'function') {
+      for (const el of tweetArticle.querySelectorAll('[role="group"]')) {
+        const owner = typeof el.closest === 'function' ? el.closest('article') : null;
+        if (owner && owner !== tweetArticle) continue;
+        bars.push(el);
+      }
+    } else {
+      const el = tweetArticle.querySelector?.('[role="group"]');
+      if (el) bars.push(el);
+    }
+    return bars.find((bar) => bar.querySelector?.('[data-engagement-action], [data-testid="reply"], [data-testid="like"], [data-testid="share"]')) || bars[0] || null;
+  }
+
+  function findControl(root, selectors) {
+    for (const selector of selectors) {
+      const el = root.querySelector(selector);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function insertBeside(actionBar, anchor, buttonContainer) {
+    // New app keeps Share inside the trailing flex cluster (next to Bookmark).
+    // Drop the icon immediately after that Share control.
+    const engagement = typeof anchor.closest === 'function' ? anchor.closest('[data-engagement-action]') : null;
+    const cluster = engagement && engagement.parentElement;
+    if (cluster && cluster.parentElement === actionBar && cluster.classList && cluster.classList.contains('flex')) {
+      if (engagement.nextSibling) cluster.insertBefore(buttonContainer, engagement.nextSibling);
+      else cluster.appendChild(buttonContainer);
+      return true;
+    }
+
+    let wrapper = anchor;
+    while (wrapper.parentElement && wrapper.parentElement !== actionBar) {
+      wrapper = wrapper.parentElement;
+    }
+    if (wrapper.parentElement === actionBar) {
+      if (wrapper.nextSibling) actionBar.insertBefore(buttonContainer, wrapper.nextSibling);
+      else actionBar.appendChild(buttonContainer);
+      return true;
+    }
+    return false;
+  }
+
   function insertFollowIcon(tweetArticle, buttonContainer) {
-    // 1. Primary target: div[role="group"] (Bottom action bar) directly to the RIGHT of Share button
-    const actionBar = tweetArticle.querySelector('div[role="group"]');
+    // 1. Primary target: action bar, directly to the RIGHT of Share
+    const actionBar = findActionBar(tweetArticle);
     if (actionBar) {
-      // Find Share button
-      const share = actionBar.querySelector('button[data-testid="share"], button[data-testid*="share" i], [aria-label*="share" i], [aria-label*="分享" i]');
-      if (share) {
-        let sWrapper = share;
-        while (sWrapper.parentElement && sWrapper.parentElement !== actionBar) {
-          sWrapper = sWrapper.parentElement;
-        }
-        if (sWrapper.parentElement === actionBar) {
-          // Insert directly to the RIGHT of the Share wrapper!
-          if (sWrapper.nextSibling) {
-            actionBar.insertBefore(buttonContainer, sWrapper.nextSibling);
-          } else {
-            actionBar.appendChild(buttonContainer);
-          }
-          return;
-        }
-      }
+      const share = findControl(actionBar, [
+        '[data-engagement-action="share"]',
+        'button[data-testid="share"]',
+        'button[data-testid*="share" i]',
+        '[aria-label*="share" i]',
+        '[aria-label*="分享" i]',
+        '[aria-label*="共有" i]'
+      ]);
+      if (share && insertBeside(actionBar, share, buttonContainer)) return;
 
-      // Fallback 1: check Bookmark button (insert to its right)
-      const bookmark = actionBar.querySelector('button[data-testid="bookmark"], button[data-testid="removeBookmark"], [aria-label*="bookmark" i], [aria-label*="书签" i]');
-      if (bookmark) {
-        let bWrapper = bookmark;
-        while (bWrapper.parentElement && bWrapper.parentElement !== actionBar) {
-          bWrapper = bWrapper.parentElement;
-        }
-        if (bWrapper.parentElement === actionBar) {
-          if (bWrapper.nextSibling) {
-            actionBar.insertBefore(buttonContainer, bWrapper.nextSibling);
-          } else {
-            actionBar.appendChild(buttonContainer);
-          }
-          return;
-        }
-      }
+      const bookmark = findControl(actionBar, [
+        '[data-engagement-action="bookmark"]',
+        'button[data-testid="bookmark"]',
+        'button[data-testid="removeBookmark"]',
+        '[aria-label*="bookmark" i]',
+        '[aria-label*="书签" i]',
+        '[aria-label*="書籤" i]'
+      ]);
+      if (bookmark && insertBeside(actionBar, bookmark, buttonContainer)) return;
 
-      // Fallback 2: check Grok button (insert to its right)
-      const grokBtn = actionBar.querySelector('button[aria-label*="grok" i], [data-testid*="grok" i]');
-      if (grokBtn) {
-        let gWrapper = grokBtn;
-        while (gWrapper.parentElement && gWrapper.parentElement !== actionBar) {
-          gWrapper = gWrapper.parentElement;
-        }
-        if (gWrapper.parentElement === actionBar) {
-          if (gWrapper.nextSibling) {
-            actionBar.insertBefore(buttonContainer, gWrapper.nextSibling);
-          } else {
-            actionBar.appendChild(buttonContainer);
-          }
-          return;
-        }
-      }
+      const grokBtn = findControl(actionBar, [
+        'button[aria-label*="grok" i]',
+        '[data-testid*="grok" i]'
+      ]);
+      if (grokBtn && insertBeside(actionBar, grokBtn, buttonContainer)) return;
 
-      // Fallback 3: append to end of action bar (rightmost position)
       actionBar.appendChild(buttonContainer);
       return;
     }
 
-    // 2. Fallback to User-Name area if action bar not yet mounted
-    const userNameEl = tweetArticle.querySelector('div[data-testid="User-Name"]');
+    // 2. Fallback to the author header if the action bar is not mounted yet
+    const userNameEl = queryOwn(tweetArticle, 'div[data-testid="User-Name"]')
+      || queryOwn(tweetArticle, '.x-middot-group');
     if (userNameEl) {
-      const caret = userNameEl.querySelector('button[data-testid="caret"]');
-      if (caret) {
+      const caret = findCaretButton(userNameEl) || findCaretButton(tweetArticle);
+      if (caret && userNameEl.contains(caret)) {
         let caretWrapper = caret;
         while (caretWrapper.parentElement && caretWrapper.parentElement !== userNameEl) {
           caretWrapper = caretWrapper.parentElement;
@@ -1107,7 +1396,7 @@
     if (!tweetArticle || !tweetArticle.isConnected) return;
 
     if (isProfilePage()) {
-      const existing = tweetArticle.querySelector('.x-followflow-container');
+      const existing = queryOwn(tweetArticle, '.x-followflow-container');
       if (existing) {
         if (existing._unsubscribe) {
           try { existing._unsubscribe(); } catch (e) {}
@@ -1122,14 +1411,18 @@
 
     const currentUser = getCurrentUser();
     if (currentUser && author === currentUser) {
-      const existing = tweetArticle.querySelector('.x-followflow-container');
+      const existing = queryOwn(tweetArticle, '.x-followflow-container');
       if (existing) existing.remove();
       return;
     }
 
-    const existingContainer = tweetArticle.querySelector('.x-followflow-container');
+    const existingContainer = queryOwn(tweetArticle, '.x-followflow-container');
     if (existingContainer) {
       if (existingContainer.getAttribute('data-x-author') === author) {
+        const bar = findActionBar(tweetArticle);
+        if (bar && !bar.contains(existingContainer)) {
+          insertFollowIcon(tweetArticle, existingContainer);
+        }
         return;
       }
       if (existingContainer._unsubscribe) existingContainer._unsubscribe();
@@ -1207,7 +1500,7 @@
         removeAllFollowIcons();
         return;
       }
-      const tweets = document.querySelectorAll('article[data-testid="tweet"]');
+      const tweets = collectTimelinePosts(document);
       for (const tweet of tweets) {
         processTweet(tweet);
       }
@@ -1221,7 +1514,7 @@
         if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              if (node.matches && (node.matches('article[data-testid="tweet"]') || node.querySelector('article[data-testid="tweet"]'))) {
+              if (node.matches && (node.matches('article') || (node.querySelector && node.querySelector('article')))) {
                 shouldScan = true;
                 break;
               }
