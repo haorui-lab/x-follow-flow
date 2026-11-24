@@ -22,7 +22,8 @@ export function extractUsersFromGraphQLResponse(data, results = new Map()) {
   const isUserObj = data.__typename === 'User' || (data.rest_id && (data.legacy || data.relationship_perspectives));
   if (isUserObj) {
     const legacy = data.legacy || {};
-    const screenName = (legacy.screen_name || data.screen_name || '').toLowerCase();
+    const core = data.core || {};
+    const screenName = (core.screen_name || legacy.screen_name || data.screen_name || '').toLowerCase();
     if (screenName) {
       const existing = results.get(screenName) || {};
 
@@ -87,7 +88,8 @@ export function searchReactTreeForUser(obj, targetAuthor, depth = 0, visited = n
   const target = (targetAuthor || '').toLowerCase();
   const legacy = obj.legacy;
   const rel = obj.relationship_perspectives;
-  const screenName = (legacy?.screen_name || obj.screen_name || '').toLowerCase();
+  const core = obj.core;
+  const screenName = (core?.screen_name || legacy?.screen_name || obj.screen_name || '').toLowerCase();
 
   // ONLY match if screenName matches targetAuthor
   if (screenName && screenName === target) {
@@ -138,6 +140,54 @@ export function searchReactTreeForUser(obj, targetAuthor, depth = 0, visited = n
     }
   }
   return null;
+}
+
+export function usernameFromHref(href) {
+  if (!href) return null;
+  const path = String(href).replace(/^https?:\/\/[^/]+/, '').split('?')[0].split('#')[0];
+  const match = path.match(/^\/([A-Za-z0-9_]{1,15})$/);
+  if (!match) return null;
+  const candidate = match[1].toLowerCase();
+  if (RESERVED_ROUTES.has(candidate)) return null;
+  return candidate;
+}
+
+export function usernameFromAlt(alt) {
+  const match = String(alt || '').trim().match(/^@([A-Za-z0-9_]{1,15})$/);
+  if (!match) return null;
+  const candidate = match[1].toLowerCase();
+  if (RESERVED_ROUTES.has(candidate)) return null;
+  return candidate;
+}
+
+/**
+ * Mirrors the userscript's post-author resolution order:
+ * avatar alt, avatar href, header profile link, @handle text.
+ */
+export function resolvePostAuthor({ avatarAlt = '', avatarHref = '', headerLinks = [], headerText = '' } = {}) {
+  return usernameFromAlt(avatarAlt)
+    || usernameFromHref(avatarHref)
+    || extractUsernameFromLinks(headerLinks, headerText);
+}
+
+export function isTimelinePost(article) {
+  if (!article || typeof article.querySelector !== 'function') return false;
+  if (typeof article.matches === 'function' && article.matches('article[data-testid="tweet"]')) return true;
+  const own = (selector) => {
+    if (typeof article.querySelectorAll !== 'function') return article.querySelector(selector);
+    const nodes = article.querySelectorAll(selector);
+    for (const el of nodes) {
+      const owner = typeof el.closest === 'function' ? el.closest('article') : null;
+      if (owner && typeof article.matches === 'function' && article.matches('article') && owner !== article) continue;
+      return el;
+    }
+    return null;
+  };
+  if (own('[data-engagement-action="share"], [data-engagement-action="reply"], [data-testid="reply"], [data-testid="like"], [data-testid="share"]')) {
+    return true;
+  }
+  if (own('[data-post-avatar], div[data-testid="User-Name"]')) return true;
+  return false;
 }
 
 export const RESERVED_ROUTES = new Set([
@@ -288,7 +338,16 @@ export function hasTweetSocialContext(tweetArticle) {
   if (!tweetArticle || typeof tweetArticle.querySelector !== 'function') return false;
   if (tweetArticle.querySelector('[data-testid="socialContext"]')) return true;
 
-  const userName = tweetArticle.querySelector('[data-testid="User-Name"]');
+  if (typeof tweetArticle.querySelectorAll === 'function') {
+    const icons = tweetArticle.querySelectorAll('svg[data-icon="icon-repost"], svg[data-icon="icon-heart"]');
+    for (const icon of icons) {
+      if (typeof icon.closest === 'function' && icon.closest('[role="group"], [data-engagement-action]')) continue;
+      return true;
+    }
+  }
+
+  const userName = tweetArticle.querySelector('[data-testid="User-Name"]')
+    || (typeof tweetArticle.querySelector === 'function' ? tweetArticle.querySelector('.x-middot-group') : null);
   const scanRoot = userName?.parentElement?.parentElement || userName?.parentElement;
   if (!scanRoot) return false;
   const text = (scanRoot.textContent || '').toLowerCase();
@@ -693,5 +752,128 @@ test('isProfilePage correctly identifies user profile pages and excludes others'
   assert.equal(isProfilePage(''), false);
   assert.equal(isProfilePage(null), false);
   assert.equal(isProfilePage(undefined), false);
+});
+
+test('extractUsersFromGraphQLResponse reads core.screen_name when legacy has no handle', () => {
+  const rebuiltUser = {
+    data: {
+      user_result_by_screen_name: {
+        result: {
+          __typename: 'User',
+          core: { screen_name: 'GitLab' },
+          legacy: { withheld_scope: '' },
+          relationship_perspectives: { following: false, muting: false },
+          rest_id: '390167291'
+        }
+      }
+    }
+  };
+
+  const users = extractUsersFromGraphQLResponse(rebuiltUser);
+  const user = users.get('gitlab');
+  assert.ok(user);
+  assert.equal(user.following, false);
+  assert.equal(user.restId, '390167291');
+});
+
+test('searchReactTreeForUser matches core.screen_name on the rebuilt user object', () => {
+  const tree = {
+    post: {
+      author: {
+        __typename: 'User',
+        core: { screen_name: 'gitlab' },
+        relationship_perspectives: { following: true },
+        rest_id: '390167291'
+      },
+      viewer: {
+        core: { screen_name: 'me' },
+        relationship_perspectives: { following: false }
+      }
+    }
+  };
+
+  const found = searchReactTreeForUser(tree, 'gitlab');
+  assert.ok(found);
+  assert.equal(found.username, 'gitlab');
+  assert.equal(found.following, true);
+  assert.equal(found.restId, '390167291');
+});
+
+test('resolvePostAuthor prefers the new avatar alt over status links', () => {
+  assert.equal(resolvePostAuthor({
+    avatarAlt: '@gitlab',
+    avatarHref: '/gitlab',
+    headerLinks: ['/gitlab/status/2124961463211032736'],
+    headerText: 'GitLab @gitlab'
+  }), 'gitlab');
+
+  assert.equal(resolvePostAuthor({
+    headerLinks: ['/home', '/pandaoist'],
+    headerText: ''
+  }), 'pandaoist');
+
+  assert.equal(usernameFromHref('/gitlab/status/1'), null);
+  assert.equal(usernameFromAlt('GitLab'), null);
+});
+
+test('isTimelinePost accepts rebuilt articles and still accepts legacy tweets', () => {
+  function makeArticle({ legacy = false, selectors = {}, nested = false }) {
+    const self = {
+      matches(sel) {
+        if (sel === 'article[data-testid="tweet"]') return legacy;
+        if (sel === 'article') return true;
+        return false;
+      },
+      querySelector() { return null; },
+      querySelectorAll(sel) {
+        for (const [key, value] of Object.entries(selectors)) {
+          if (!value) continue;
+          if (sel.includes(key)) {
+            const el = nested
+              ? { closest: () => ({}) }
+              : { closest: () => self };
+            return [el];
+          }
+        }
+        return [];
+      }
+    };
+    return self;
+  }
+
+  assert.equal(isTimelinePost(makeArticle({ legacy: true })), true);
+  assert.equal(isTimelinePost(makeArticle({
+    selectors: { '[data-engagement-action="share"]': true }
+  })), true);
+  assert.equal(isTimelinePost(makeArticle({
+    selectors: { '[data-post-avatar]': true }
+  })), true);
+  assert.equal(isTimelinePost(makeArticle({
+    selectors: { '[data-engagement-action="share"]': true },
+    nested: true
+  })), false);
+  assert.equal(isTimelinePost({ querySelector() { return null; }, querySelectorAll() { return []; }, matches() { return false; } }), false);
+});
+
+test('hasTweetSocialContext ignores action-bar repost icons on the rebuilt post', () => {
+  const actionIcon = { closest: (sel) => (sel.includes('role="group"') ? {} : null) };
+  const contextIcon = { closest: () => null };
+  const post = {
+    querySelector() { return null; },
+    querySelectorAll(sel) {
+      if (sel.includes('icon-repost')) return [actionIcon];
+      return [];
+    }
+  };
+  const repost = {
+    querySelector() { return null; },
+    querySelectorAll(sel) {
+      if (sel.includes('icon-repost')) return [contextIcon];
+      return [];
+    }
+  };
+
+  assert.equal(hasTweetSocialContext(post), false);
+  assert.equal(hasTweetSocialContext(repost), true);
 });
 
