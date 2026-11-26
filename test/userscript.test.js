@@ -896,6 +896,58 @@ export function notInterestedScore(text) {
   return best;
 }
 
+function engagementControl(root) {
+  if (!root || typeof root.querySelector !== 'function') return null;
+  return root.querySelector('[data-engagement-action], [data-testid="reply"], [data-testid="like"], [data-testid="share"]');
+}
+
+function caretIsInActionBar(btn) {
+  if (!btn || typeof btn.closest !== 'function') return false;
+  let group = btn.closest('[role="group"]');
+  while (group) {
+    const control = engagementControl(group);
+    if (control && typeof control.closest === 'function' && control.closest('[role="group"]') === group) {
+      return true;
+    }
+    const parent = group.parentElement;
+    group = parent && typeof parent.closest === 'function' ? parent.closest('[role="group"]') : null;
+  }
+  return false;
+}
+
+function makeNode({ role = null, engagement = false, children = [] } = {}) {
+  const node = {
+    parentElement: null,
+    children,
+    getAttribute(name) { return name === 'role' ? role : null; },
+    querySelector(sel) {
+      if (engagement && String(sel).includes('data-engagement-action')) return node.control;
+      for (const child of children) {
+        const found = child.querySelector(sel);
+        if (found) return found;
+      }
+      return null;
+    },
+    closest(sel) {
+      if (sel === '[role="group"]' && role === 'group') return node;
+      return node.parentElement ? node.parentElement.closest(sel) : null;
+    }
+  };
+  node.control = { closest: (sel) => node.closest(sel) };
+  for (const child of children) child.parentElement = node;
+  return node;
+}
+
+test('caretIsInActionBar ignores a post-level group and matches the engagement row', () => {
+  const more = makeNode();
+  const action = makeNode({ role: 'group', engagement: true, children: [makeNode()] });
+  makeNode({ role: 'group', children: [makeNode({ children: [more] }), action] });
+
+  assert.equal(caretIsInActionBar(more), false);
+  assert.equal(caretIsInActionBar(action.children[0]), true);
+  assert.equal(caretIsInActionBar(makeNode()), false);
+});
+
 test('notInterestedScore prefers the exact post action and ignores positive interest', () => {
   assert.equal(notInterestedScore('对此帖子不感兴趣'), 5);
   assert.equal(notInterestedScore('Not interested in this post'), 5);

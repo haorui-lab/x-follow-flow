@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.8-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.9-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-supported-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-supported-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -32,7 +32,7 @@ Browsing X's **For You** feed is one of the primary ways to discover new creator
 
 - 🎯 **Native Look & Feel**: Borderless icon button embedded cleanly in the bottom action bar (`Reply` · `Repost` · `Like` · `Views` · `Bookmark` · `Grok` · `Share` · **`FollowFlow`**).
 - 🆕 **Rebuilt X Web (Nov 2026)**: When posts no longer expose `data-testid`, the button still anchors to `article`, the avatar `@handle`, and `data-engagement-action="share"`. Legacy pages keep the old selectors.
-- 🙈 **Not interested shortcut**: An icon just left of the post `···` menu triggers X's native "Not interested in this post" item.
+- 🙈 **Not interested shortcut**: A crossed eye just left of the post `···` menu triggers X's native "Not interested in this post" item. If the header is redrawn, the icon is put back.
 - ⚡ **Accurate Status Detection**:
   - Deep inspection of X's modern `relationship_perspectives.following` GraphQL schema.
   - Multi-layered React Fiber & Caret menu action tree verification.
@@ -84,7 +84,7 @@ Click the link below to install directly with one click:
 
 👉 **[Install x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(If GitHub CDN serves a cached older version, use the [versioned link](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.8) to bypass edge cache).*
+*(If GitHub CDN serves a cached older version, use the [versioned link](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.9) to bypass edge cache).*
 
 ---
 
