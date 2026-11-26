@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.9
+// @version      0.5.10
 // @description  Add a native-style Follow / Unfollow icon beside Share, plus a header shortcut that triggers "Not interested in this post".
 // @description:zh-CN 在 X 时间线分享按钮右侧增加关注/取关按钮，并在帖子右上角「···」左侧增加「对此帖子不感兴趣」快捷入口。
 // @author       haorui
@@ -303,6 +303,10 @@
       }
       container.remove();
     }
+  }
+
+  function removeAllNotInterestedIcons() {
+    document.querySelectorAll('.x-not-interested-container').forEach((el) => el.remove());
   }
 
   // High-Recognition Crisp SVG Icons (+ / • / −) without outer borders
@@ -1547,6 +1551,7 @@
 
   function processNotInterested(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
+    if (isProfilePage()) return;
 
     const author = extractUsernameFromTweet(tweetArticle);
     const currentUser = getCurrentUser();
@@ -1772,10 +1777,12 @@
       scanScheduled = false;
       if (isProfilePage()) {
         removeAllFollowIcons();
+        removeAllNotInterestedIcons();
       }
       const tweets = collectTimelinePosts(document);
       for (const tweet of tweets) {
-        if (!isProfilePage()) processTweet(tweet);
+        if (isProfilePage()) continue;
+        processTweet(tweet);
         processNotInterested(tweet);
       }
     }, CONFIG.scanDebounceMs);
@@ -1829,6 +1836,7 @@
       cachedCurrentUser = null;
       if (isProfilePage()) {
         removeAllFollowIcons();
+        removeAllNotInterestedIcons();
       }
       scheduleScan();
     };
