@@ -26,8 +26,8 @@
   const CONFIG = {
     scanDebounceMs: 50,
     maxCaretWaitMs: 800,
-  // x | slash | minus | chevron
-  notInterestedIcon: 'x'
+  // frown | thumb | funnel | eye
+  notInterestedIcon: 'frown'
   };
 
   const RESERVED_ROUTES = new Set([
@@ -318,26 +318,32 @@
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     `,
-    // Negative feedback icons. One or two strokes. Switch with CONFIG.notInterestedIcon.
-    x: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="7" y1="7" x2="17" y2="17"></line>
-        <line x1="17" y1="7" x2="7" y2="17"></line>
+    // Negative feedback icons. Shapes that are not already on a post. Switch with CONFIG.notInterestedIcon.
+    frown: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="8"></circle>
+        <circle cx="9" cy="10.2" r="0.9" fill="currentColor" stroke="none"></circle>
+        <circle cx="15" cy="10.2" r="0.9" fill="currentColor" stroke="none"></circle>
+        <path d="M8.7 15.4c.9-1.2 2-1.8 3.3-1.8s2.4.6 3.3 1.8"></path>
       </svg>
     `,
-    slash: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="8" y1="16" x2="16" y2="8"></line>
+    thumb: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 10v12"></path>
+        <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7"></path>
+        <path d="M7 10H4.33A2.31 2.31 0 0 0 2 12.31v7.38A2.31 2.31 0 0 0 4.33 22H7"></path>
       </svg>
     `,
-    minus: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="6" y1="12" x2="18" y2="12"></line>
+    funnel: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5h16l-6 7v6.2L10 20v-8L4 5z"></path>
       </svg>
     `,
-    chevron: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="8 6 16 12 8 18"></polyline>
+    eye: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12s3.2-5 9-5 9 5 9 5-3.2 5-9 5-9-5-9-5z"></path>
+        <circle cx="12" cy="12" r="2"></circle>
+        <path d="M5 19 19 5"></path>
       </svg>
     `,
     done: `
@@ -1455,7 +1461,7 @@
   }
 
   function notInterestedIconSvg() {
-    return ICONS[CONFIG.notInterestedIcon] || ICONS.x;
+    return ICONS[CONFIG.notInterestedIcon] || ICONS.frown;
   }
 
   function createNotInterestedButton(tweetElement) {
