@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.11
+// @version      0.5.12
 // @description  Add a native-style Follow / Unfollow icon beside Share, plus a header shortcut that triggers "Not interested in this post".
 // @description:zh-CN 在 X 时间线分享按钮右侧增加关注/取关按钮，并在帖子右上角「···」左侧增加「对此帖子不感兴趣」快捷入口。
 // @author       haorui
@@ -361,8 +361,8 @@
       </svg>
     `,
     funnel: `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 7h10l-3.4 4.4V16l-3.2 1.1v-5.7L7 7z"></path>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4.5h16l-6 7.1v6.4l-4 1.5v-7.9L4 4.5z"></path>
       </svg>
     `,
     eye: `
@@ -1208,8 +1208,8 @@
         z-index: 3;
       }
       .x-not-interested-container svg {
-        width: 14px;
-        height: 14px;
+        width: 18px;
+        height: 18px;
         display: block;
       }
       .x-not-interested-btn {
