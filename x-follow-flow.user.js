@@ -27,7 +27,7 @@
     scanDebounceMs: 50,
     maxCaretWaitMs: 800,
   // frown | thumb | funnel | eye
-  notInterestedIcon: 'frown'
+  notInterestedIcon: 'eye'
   };
 
   const RESERVED_ROUTES = new Set([
@@ -1461,7 +1461,7 @@
   }
 
   function notInterestedIconSvg() {
-    return ICONS[CONFIG.notInterestedIcon] || ICONS.frown;
+    return ICONS[CONFIG.notInterestedIcon] || ICONS.eye;
   }
 
   function createNotInterestedButton(tweetElement) {
