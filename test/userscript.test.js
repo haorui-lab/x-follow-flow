@@ -877,3 +877,31 @@ test('hasTweetSocialContext ignores action-bar repost icons on the rebuilt post'
   assert.equal(hasTweetSocialContext(repost), true);
 });
 
+const NOT_INTERESTED_PHRASES = [
+  ['对此帖子不感兴趣', 5],
+  ['对此帖文不感兴趣', 5],
+  ['not interested in this post', 5],
+  ['不感兴趣', 3],
+  ['not interested', 3],
+  ['no me interesa', 3]
+];
+
+export function notInterestedScore(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!normalized || normalized.length > 80) return 0;
+  let best = 0;
+  for (const [phrase, score] of NOT_INTERESTED_PHRASES) {
+    if (normalized.includes(phrase.toLowerCase())) best = Math.max(best, score);
+  }
+  return best;
+}
+
+test('notInterestedScore prefers the exact post action and ignores positive interest', () => {
+  assert.equal(notInterestedScore('对此帖子不感兴趣'), 5);
+  assert.equal(notInterestedScore('Not interested in this post'), 5);
+  assert.equal(notInterestedScore('不感兴趣'), 3);
+  assert.equal(notInterestedScore('感兴趣'), 0);
+  assert.equal(notInterestedScore('Follow @gitlab'), 0);
+  assert.ok(notInterestedScore('对此帖子不感兴趣') > notInterestedScore('不感兴趣'));
+});
+

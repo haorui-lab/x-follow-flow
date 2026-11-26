@@ -2,9 +2,9 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.7
-// @description  Add minimalist native-style Follow / Unfollow icon button directly to the right of the Share button on X timelines with hover-to-confirm unfollow and instant state sync.
-// @description:zh-CN 在 X (Twitter) 时间线分享按钮右侧增加无缝原生风格关注/取关 (+ / •) 按钮，悬停显示 − 后单击即可取关，并支持多卡状态同步。
+// @version      0.5.8
+// @description  Add a native-style Follow / Unfollow icon beside Share, plus a header shortcut that triggers "Not interested in this post".
+// @description:zh-CN 在 X 时间线分享按钮右侧增加关注/取关按钮，并在帖子右上角「···」左侧增加「对此帖子不感兴趣」快捷入口。
 // @author       haorui
 // @homepageURL  https://github.com/haorui-lab/x-follow-flow
 // @supportURL   https://github.com/haorui-lab/x-follow-flow/issues
@@ -25,7 +25,9 @@
   // ==========================================
   const CONFIG = {
     scanDebounceMs: 50,
-    maxCaretWaitMs: 800
+    maxCaretWaitMs: 800,
+    // eyeOff | slash | thumbsDown | frown
+    notInterestedIcon: 'eyeOff'
   };
 
   const RESERVED_ROUTES = new Set([
@@ -314,6 +316,41 @@
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    `,
+    // Negative feedback icons. Switch with CONFIG.notInterestedIcon.
+    eyeOff: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+        <path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"></path>
+        <path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"></path>
+        <line x1="2" y1="2" x2="22" y2="22"></line>
+      </svg>
+    `,
+    slash: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="8"></circle>
+        <line x1="6.6" y1="17.4" x2="17.4" y2="6.6"></line>
+      </svg>
+    `,
+    thumbsDown: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 10v12"></path>
+        <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7"></path>
+        <path d="M7 10H4.33A2.31 2.31 0 0 0 2 12.31v7.38A2.31 2.31 0 0 0 4.33 22H7"></path>
+      </svg>
+    `,
+    frown: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8"></circle>
+        <circle cx="9" cy="10" r="0.8" fill="currentColor" stroke="none"></circle>
+        <circle cx="15" cy="10" r="0.8" fill="currentColor" stroke="none"></circle>
+        <path d="M8.6 15.3c.9-1.15 2.05-1.8 3.4-1.8s2.5.65 3.4 1.8"></path>
+      </svg>
+    `,
+    done: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12.5 9.2 17 19 7"></path>
       </svg>
     `,
     // Pending clock
@@ -1016,6 +1053,99 @@
     return false;
   }
 
+  const NOT_INTERESTED_PHRASES = [
+    ['对此帖子不感兴趣', 5],
+    ['对此帖文不感兴趣', 5],
+    ['对此帖不感兴趣', 5],
+    ['not interested in this post', 5],
+    ['not interested in this', 4],
+    ['不感兴趣', 3],
+    ['not interested', 3],
+    ['no me interesa', 3],
+    ['pas intéressé', 3],
+    ['興味がない', 3],
+    ['興味ありません', 3],
+    ['nicht interessiert', 3],
+    ['non mi interessa', 3],
+    ['não tenho interesse', 3],
+    ['관심 없음', 3],
+    ['не интересно', 3],
+    ['tidak tertarik', 3]
+  ];
+
+  function notInterestedScore(text) {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!normalized || normalized.length > 80) return 0;
+    let best = 0;
+    for (const [phrase, score] of NOT_INTERESTED_PHRASES) {
+      if (normalized.includes(phrase.toLowerCase())) best = Math.max(best, score);
+    }
+    return best;
+  }
+
+  function menuItemText(el) {
+    return (el?.getAttribute?.('aria-label') || el?.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function pickNotInterestedItem(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return null;
+    const nodes = root.querySelectorAll('[role="menuitem"], [role="menuitemradio"], button, [role="button"]');
+    let best = null;
+    let bestScore = 0;
+    let bestLen = Infinity;
+    for (const el of nodes) {
+      if (el.closest && el.closest('.x-not-interested-container, .x-followflow-container')) continue;
+      const text = menuItemText(el);
+      const score = notInterestedScore(text);
+      if (score > bestScore || (score === bestScore && score > 0 && text.length < bestLen)) {
+        best = el;
+        bestScore = score;
+        bestLen = text.length;
+      }
+    }
+    return bestScore > 0 ? best : null;
+  }
+
+  function findTransientUiRoot() {
+    return findOpenMenu()
+      || document.querySelector('[data-slot="xds-modal-surface"], [role="dialog"], [role="alertdialog"]');
+  }
+
+  async function executeNotInterested(tweetElement) {
+    const caret = findCaretButton(tweetElement);
+    if (!caret) return false;
+
+    document.body.classList.add('x-follow-silent-mode');
+    const seen = new Set();
+    let clicks = 0;
+
+    try {
+      triggerClick(caret);
+      const start = Date.now();
+      while (Date.now() - start < CONFIG.maxCaretWaitMs && clicks < 2) {
+        const root = findTransientUiRoot();
+        const item = root && pickNotInterestedItem(root);
+        if (item && !seen.has(item)) {
+          seen.add(item);
+          triggerClick(item);
+          clicks += 1;
+          await sleep(160);
+          continue;
+        }
+        if (clicks > 0) break;
+        await sleep(40);
+      }
+
+      if (!clicks) triggerClick(caret);
+      await sleep(80);
+      document.body.classList.remove('x-follow-silent-mode');
+      return clicks > 0;
+    } catch (err) {
+      document.body.classList.remove('x-follow-silent-mode');
+      return false;
+    }
+  }
+
   // ==========================================
   // 5. UI Component (Border-Free Native Icon Style)
   // ==========================================
@@ -1038,6 +1168,48 @@
         opacity: 0 !important;
         pointer-events: auto !important;
         transition: none !important;
+      }
+
+      /* Header shortcut, sitting in the flex cluster immediately left of ··· */
+      .x-not-interested-container {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        position: relative;
+        z-index: 2;
+      }
+      .x-not-interested-btn {
+        width: 32px;
+        height: 32px;
+        border: none;
+        padding: 0;
+        margin: 0;
+        background: transparent;
+        color: #71767b;
+        border-radius: 9999px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+      .x-not-interested-btn:hover {
+        background: rgba(244, 33, 46, 0.1);
+        color: #f4212e;
+      }
+      .x-not-interested-btn.x-state-loading {
+        cursor: wait;
+        opacity: 0.65;
+        pointer-events: none;
+      }
+      .x-not-interested-btn.x-state-done {
+        color: #71767b;
+        pointer-events: none;
+      }
+      .x-not-interested-btn.x-state-failed {
+        color: #f4212e;
+        background: rgba(244, 33, 46, 0.12);
       }
 
       /* Container inside X action bar (div[role="group"]) */
@@ -1290,6 +1462,79 @@
     return container;
   }
 
+  function notInterestedIconSvg() {
+    return ICONS[CONFIG.notInterestedIcon] || ICONS.eyeOff;
+  }
+
+  function createNotInterestedButton(tweetElement) {
+    const container = document.createElement('div');
+    container.className = 'x-not-interested-container';
+    container.setAttribute('data-navigation-stop', '');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'x-not-interested-btn';
+    btn.title = '对此帖子不感兴趣';
+    btn.setAttribute('aria-label', '对此帖子不感兴趣');
+    btn.innerHTML = notInterestedIconSvg();
+    container.appendChild(btn);
+
+    const stop = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    container.addEventListener('click', stop);
+    container.addEventListener('pointerdown', (event) => event.stopPropagation());
+    btn.addEventListener('pointerdown', (event) => event.stopPropagation());
+    btn.addEventListener('mousedown', (event) => event.stopPropagation());
+
+    btn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (btn.classList.contains('x-state-loading') || btn.classList.contains('x-state-done')) return;
+      btn.classList.add('x-state-loading');
+      btn.innerHTML = ICONS.loading;
+      const ok = await executeNotInterested(tweetElement);
+      btn.classList.remove('x-state-loading');
+      if (ok) {
+        btn.classList.add('x-state-done');
+        btn.innerHTML = ICONS.done;
+        btn.title = '已标记为不感兴趣';
+      } else {
+        btn.classList.add('x-state-failed');
+        btn.innerHTML = ICONS.failed;
+        btn.title = '操作失败';
+        setTimeout(() => {
+          if (!btn.isConnected) return;
+          btn.classList.remove('x-state-failed');
+          btn.innerHTML = notInterestedIconSvg();
+          btn.title = '对此帖子不感兴趣';
+        }, 1500);
+      }
+    });
+
+    return container;
+  }
+
+  function processNotInterested(tweetArticle) {
+    if (!tweetArticle || !tweetArticle.isConnected) return;
+
+    const author = extractUsernameFromTweet(tweetArticle);
+    const currentUser = getCurrentUser();
+    const existing = queryOwn(tweetArticle, '.x-not-interested-container');
+    if (currentUser && author && author === currentUser) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return;
+
+    const caret = findCaretButton(tweetArticle);
+    if (!caret || !caret.parentElement) return;
+    if (caret.closest && caret.closest('[role="group"]')) return;
+
+    caret.parentElement.insertBefore(createNotInterestedButton(tweetArticle), caret);
+  }
+
   // ==========================================
   // 6. Placement (Directly to the RIGHT of Share)
   // ==========================================
@@ -1498,11 +1743,11 @@
       scanScheduled = false;
       if (isProfilePage()) {
         removeAllFollowIcons();
-        return;
       }
       const tweets = collectTimelinePosts(document);
       for (const tweet of tweets) {
-        processTweet(tweet);
+        if (!isProfilePage()) processTweet(tweet);
+        processNotInterested(tweet);
       }
     }, CONFIG.scanDebounceMs);
   }
