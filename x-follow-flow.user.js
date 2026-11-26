@@ -26,8 +26,8 @@
   const CONFIG = {
     scanDebounceMs: 50,
     maxCaretWaitMs: 800,
-    // eyeOff | slash | thumbsDown | frown
-    notInterestedIcon: 'eyeOff'
+  // x | slash | minus | chevron
+  notInterestedIcon: 'x'
   };
 
   const RESERVED_ROUTES = new Set([
@@ -318,34 +318,26 @@
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     `,
-    // Negative feedback icons. Switch with CONFIG.notInterestedIcon.
-    eyeOff: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
-        <path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"></path>
-        <path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"></path>
-        <line x1="2" y1="2" x2="22" y2="22"></line>
+    // Negative feedback icons. One or two strokes. Switch with CONFIG.notInterestedIcon.
+    x: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="7" y1="7" x2="17" y2="17"></line>
+        <line x1="17" y1="7" x2="7" y2="17"></line>
       </svg>
     `,
     slash: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <circle cx="12" cy="12" r="8"></circle>
-        <line x1="6.6" y1="17.4" x2="17.4" y2="6.6"></line>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="8" y1="16" x2="16" y2="8"></line>
       </svg>
     `,
-    thumbsDown: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 10v12"></path>
-        <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7"></path>
-        <path d="M7 10H4.33A2.31 2.31 0 0 0 2 12.31v7.38A2.31 2.31 0 0 0 4.33 22H7"></path>
+    minus: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="6" y1="12" x2="18" y2="12"></line>
       </svg>
     `,
-    frown: `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="8"></circle>
-        <circle cx="9" cy="10" r="0.8" fill="currentColor" stroke="none"></circle>
-        <circle cx="15" cy="10" r="0.8" fill="currentColor" stroke="none"></circle>
-        <path d="M8.6 15.3c.9-1.15 2.05-1.8 3.4-1.8s2.5.65 3.4 1.8"></path>
+    chevron: `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="8 6 16 12 8 18"></polyline>
       </svg>
     `,
     done: `
@@ -1463,7 +1455,7 @@
   }
 
   function notInterestedIconSvg() {
-    return ICONS[CONFIG.notInterestedIcon] || ICONS.eyeOff;
+    return ICONS[CONFIG.notInterestedIcon] || ICONS.x;
   }
 
   function createNotInterestedButton(tweetElement) {
