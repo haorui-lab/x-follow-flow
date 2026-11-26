@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.7-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.8-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-支持-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-支持-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -32,6 +32,7 @@
 
 - 🎯 **与原生 UI 浑然一体**：采用无边框设计，精准安放于推文底部操作条（`回复` · `转推` · `点赞` · `阅读量` · `书签` · `Grok` · `分享` · **`FollowFlow`**）。
 - 🆕 **兼容 2026-11 新版 X Web**：帖子不再带 `data-testid` 时，仍能从 `article`、头像 `@handle` 和 `data-engagement-action="share"` 把按钮放回分享键右侧。旧版页面保持原选择器。
+- 🙈 **负反馈快捷入口**：帖子右上角「···」左侧增加一个图标，点击后走原生菜单里的「对此帖子不感兴趣」。
 - ⚡ **精准穿透的状态识别**：
   - 深度支持 X 现代 GraphQL `relationship_perspectives.following` 关系结构；
   - 严格限定作者 Handle 校验 React Fiber，彻底杜绝当前登录账号与 Mention 账户串扰误报；
@@ -83,7 +84,7 @@
 
 👉 **[点击一键在线安装 x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.7))*。
+*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.8))*。
 
 ---
 
