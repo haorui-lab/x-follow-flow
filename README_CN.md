@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.13-blue.svg?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/haorui-lab/x-follow-flow/releases"><img src="https://img.shields.io/badge/version-0.5.14-blue.svg?style=flat-square" alt="Version"></a>
   <a href="./package.json"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <a href="https://www.tampermonkey.net/"><img src="https://img.shields.io/badge/Tampermonkey-支持-black?style=flat-square&logo=tampermonkey" alt="Tampermonkey"></a>
   <a href="https://violentmonkey.github.io/"><img src="https://img.shields.io/badge/Violentmonkey-支持-orange?style=flat-square" alt="Violentmonkey"></a>
@@ -32,7 +32,7 @@
 
 - 🎯 **与原生 UI 浑然一体**：采用无边框设计，精准安放于推文底部操作条（`回复` · `转推` · `点赞` · `阅读量` · `书签` · `Grok` · `分享` · **`FollowFlow`**）。
 - 🆕 **兼容 2026-11 新版 X Web**：帖子不再带 `data-testid` 时，仍能从 `article`、头像 `@handle` 和 `data-engagement-action="share"` 把按钮放回分享键右侧。旧版页面保持原选择器。
-- 🙈 **负反馈快捷入口**：首页时间线里，帖子右上角「···」左侧有一个小漏斗，点击后走原生菜单里的「对此帖子不感兴趣」。个人主页与帖子正文页均不显示。页面重绘头部后会把图标补回去。
+- 🙈 **负反馈快捷入口**：在 `/home` 首页时间线里，帖子右上角「···」左侧有一个小漏斗，点击后走原生菜单里的「对此帖子不感兴趣」。页面重绘头部后会把图标补回去。
 - ⚡ **精准穿透的状态识别**：
   - 深度支持 X 现代 GraphQL `relationship_perspectives.following` 关系结构；
   - 严格限定作者 Handle 校验 React Fiber，彻底杜绝当前登录账号与 Mention 账户串扰误报；
@@ -42,7 +42,7 @@
   - 已关注显示克制小圆点（`•`），悬停变为红色减号（`−`）；
   - 点击 `−` / 已关注图标即刻取关（不再需要第二次确认点击）。
 - 🔄 **全屏多卡片实时联动**：信息流中同一作者若有多条推文，在任一推文上操作，全屏所有该作者的卡片状态瞬间同步。
-- 👤 **本人与主页推文自动过滤**：自动识别登录账号（本人推文不显示按钮），并自动在个人主页（`https://x.com/[username]`）屏蔽按钮（主页顶部已自带显眼的原生关注/已关注按钮）。
+- 👤 **仅首页显示与本人过滤**：自动识别登录账号（本人推文不显示按钮），且关注/取关与负反馈按钮均只在 `/home` 展示，其他页面自动隐藏。
 - 🚀 **极致性能与虚拟滚动优化**：防抖 MutationObserver 监听，平滑支撑 SPA 无限滚动，零布局抖动，零内存泄漏。
 - 🔒 **100% 本地隐私安全**：纯客户端运行，绝无任何第三方远程统计、上报或私有 API Key。
 
@@ -61,12 +61,8 @@
 ## 📦 支持页面
 
 - ✅ `https://x.com/home` (For You 推荐流 / Following 关注流)
-- ✅ `https://x.com/search?*` (搜索结果时间线)
-- ✅ `https://x.com/[username]/status/[id]` (单条推文详情页与回复流)
-- ✅ `https://x.com/i/lists/*` (Lists 时间线)
-- ✅ `https://x.com/i/bookmarks` (书签时间线)
-- ✅ `https://twitter.com/*` (所有旧域名对应页面)
-- ⚪ `https://x.com/[username]` (按设计已排除：个人主页自带原生关注按钮)
+- ✅ `https://twitter.com/home` (旧域名首页)
+- ⚪ 其他页面（搜索页、帖子正文页、个人主页、Lists、书签等）均按设计不显示。
 
 ---
 
@@ -84,7 +80,7 @@
 
 👉 **[点击一键在线安装 x-follow-flow.user.js](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js)**
 
-*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.13))*。
+*(若 GitHub CDN 节点存在数分钟缓存，可使用带版本戳链接：[最新直链](https://raw.githubusercontent.com/haorui-lab/x-follow-flow/main/x-follow-flow.user.js?v=0.5.14))*。
 
 ---
 

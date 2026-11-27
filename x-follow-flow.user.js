@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.13
+// @version      0.5.14
 // @description  Add a native-style Follow / Unfollow icon beside Share, plus a header shortcut that triggers "Not interested in this post".
 // @description:zh-CN 在 X 时间线分享按钮右侧增加关注/取关按钮，并在帖子右上角「···」左侧增加「对此帖子不感兴趣」快捷入口。
 // @author       haorui
@@ -71,61 +71,14 @@
     'creator'
   ]);
 
-  function isProfilePage(urlOrPath) {
+  function isHomePage(urlOrPath) {
     const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
       .replace(/^https?:\/\/[^\/]+/, '')
       .split('?')[0]
       .split('#')[0];
 
     const segments = path.split('/').filter(Boolean);
-    if (segments.length === 0) return false;
-
-    const firstSegment = segments[0].toLowerCase();
-    if (RESERVED_ROUTES.has(firstSegment)) return false;
-
-    // Twitter username format: 1-15 characters, alphanumeric + underscore
-    if (!/^[a-z0-9_]{1,15}$/.test(firstSegment)) return false;
-
-    // A user profile page is /${username} or /${username}/${profileTab}
-    // E.g., /elonmusk, /elonmusk/with_replies, /elonmusk/highlights, /elonmusk/media, etc.
-    // Tweet status pages (/status/...) or deeper paths are excluded.
-    if (segments.length === 1) {
-      return true;
-    }
-    if (segments.length === 2 && segments[1].toLowerCase() !== 'status') {
-      return true;
-    }
-
-    return false;
-  }
-
-  function isStatusPage(urlOrPath) {
-    const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
-      .replace(/^https?:\/\/[^\/]+/, '')
-      .split('?')[0]
-      .split('#')[0];
-
-    const segments = path.split('/').filter(Boolean).map((s) => s.toLowerCase());
-    if (segments.length < 3) return false;
-
-    if (
-      (segments[1] === 'status' || segments[1] === 'statuses' || segments[1] === 'article') &&
-      /^\d+$/.test(segments[2])
-    ) {
-      return true;
-    }
-
-    if (
-      segments.length >= 4 &&
-      segments[0] === 'i' &&
-      segments[1] === 'web' &&
-      (segments[2] === 'status' || segments[2] === 'statuses') &&
-      /^\d+$/.test(segments[3])
-    ) {
-      return true;
-    }
-
-    return false;
+    return segments.length === 1 && segments[0].toLowerCase() === 'home';
   }
 
   const PROFILE_LABELS = new Set([
@@ -1581,7 +1534,7 @@
   function processNotInterested(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
     const existing = queryOwn(tweetArticle, '.x-not-interested-container');
-    if (isProfilePage() || isStatusPage()) {
+    if (!isHomePage()) {
       if (existing) existing.remove();
       return;
     }
@@ -1706,7 +1659,7 @@
   async function processTweet(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
 
-    if (isProfilePage()) {
+    if (!isHomePage()) {
       const existing = queryOwn(tweetArticle, '.x-followflow-container');
       if (existing) {
         if (existing._unsubscribe) {
@@ -1776,7 +1729,7 @@
     // D. If still not resolved with 100% confidence, run silent peek / re-inspect
     if (!resolved) {
       setTimeout(async () => {
-        if (!tweetArticle.isConnected) return;
+        if (!tweetArticle.isConnected || !isHomePage()) return;
         let finalState = stateManager.get(author);
         if (!finalState) {
           const recheck = inspectFollowState(tweetArticle, author);
@@ -1807,19 +1760,15 @@
     scanScheduled = true;
     setTimeout(() => {
       scanScheduled = false;
-      if (isProfilePage()) {
+      if (!isHomePage()) {
         removeAllFollowIcons();
         removeAllNotInterestedIcons();
-      } else if (isStatusPage()) {
-        removeAllNotInterestedIcons();
+        return;
       }
       const tweets = collectTimelinePosts(document);
       for (const tweet of tweets) {
-        if (isProfilePage()) continue;
         processTweet(tweet);
-        if (!isStatusPage()) {
-          processNotInterested(tweet);
-        }
+        processNotInterested(tweet);
       }
     }, CONFIG.scanDebounceMs);
   }
@@ -1870,11 +1819,10 @@
   function initSPAHandler() {
     const handleUrlChange = () => {
       cachedCurrentUser = null;
-      if (isProfilePage()) {
+      if (!isHomePage()) {
         removeAllFollowIcons();
         removeAllNotInterestedIcons();
-      } else if (isStatusPage()) {
-        removeAllNotInterestedIcons();
+        return;
       }
       scheduleScan();
     };

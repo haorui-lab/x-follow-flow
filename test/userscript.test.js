@@ -232,66 +232,16 @@ export const RESERVED_ROUTES = new Set([
 ]);
 
 /**
- * Determines whether a URL or path represents a user profile page (https://x.com/${username})
+ * Determines whether a URL or path represents the home timeline (/home)
  */
-export function isProfilePage(urlOrPath) {
+export function isHomePage(urlOrPath) {
   const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
     .replace(/^https?:\/\/[^\/]+/, '')
     .split('?')[0]
     .split('#')[0];
 
   const segments = path.split('/').filter(Boolean);
-  if (segments.length === 0) return false;
-
-  const firstSegment = segments[0].toLowerCase();
-  if (RESERVED_ROUTES.has(firstSegment)) return false;
-
-  // Twitter username format: 1-15 characters, alphanumeric + underscore
-  if (!/^[a-z0-9_]{1,15}$/.test(firstSegment)) return false;
-
-  // A user profile page is /${username} or /${username}/${profileTab}
-  // E.g., /elonmusk, /elonmusk/with_replies, /elonmusk/highlights, /elonmusk/media, etc.
-  // Tweet status pages (/status/...) or deeper paths are excluded.
-  if (segments.length === 1) {
-    return true;
-  }
-  if (segments.length === 2 && segments[1].toLowerCase() !== 'status') {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Determines whether a URL or path represents a post/article detail page
- */
-export function isStatusPage(urlOrPath) {
-  const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
-    .replace(/^https?:\/\/[^\/]+/, '')
-    .split('?')[0]
-    .split('#')[0];
-
-  const segments = path.split('/').filter(Boolean).map((s) => s.toLowerCase());
-  if (segments.length < 3) return false;
-
-  if (
-    (segments[1] === 'status' || segments[1] === 'statuses' || segments[1] === 'article') &&
-    /^\d+$/.test(segments[2])
-  ) {
-    return true;
-  }
-
-  if (
-    segments.length >= 4 &&
-    segments[0] === 'i' &&
-    segments[1] === 'web' &&
-    (segments[2] === 'status' || segments[2] === 'statuses') &&
-    /^\d+$/.test(segments[3])
-  ) {
-    return true;
-  }
-
-  return false;
+  return segments.length === 1 && segments[0].toLowerCase() === 'home';
 }
 
 /**
@@ -739,51 +689,35 @@ test('resolveHoverCardFollowState uses buttons, ignores stats labels', () => {
   );
 });
 
-test('isProfilePage correctly identifies user profile pages and excludes others', () => {
-  // 1. Profile root pages (should be true)
-  assert.equal(isProfilePage('/elonmusk'), true);
-  assert.equal(isProfilePage('/elonmusk/'), true);
-  assert.equal(isProfilePage('https://x.com/elonmusk'), true);
-  assert.equal(isProfilePage('https://x.com/elonmusk/'), true);
-  assert.equal(isProfilePage('https://twitter.com/elonmusk'), true);
-  assert.equal(isProfilePage('https://x.com/elonmusk?mx=2'), true);
-  assert.equal(isProfilePage('/lxfater'), true);
-  assert.equal(isProfilePage('/sama'), true);
-  assert.equal(isProfilePage('/a_b_c_123'), true);
+test('isHomePage matches only /home and excludes search, status, profile, and other routes', () => {
+  // Home timeline (should be true)
+  assert.equal(isHomePage('/home'), true);
+  assert.equal(isHomePage('/home/'), true);
+  assert.equal(isHomePage('/HOME'), true);
+  assert.equal(isHomePage('https://x.com/home'), true);
+  assert.equal(isHomePage('https://x.com/home/'), true);
+  assert.equal(isHomePage('https://twitter.com/home?tab=following'), true);
+  assert.equal(isHomePage('https://x.com/home#top'), true);
 
-  // 2. Profile tab pages (should be true)
-  assert.equal(isProfilePage('/elonmusk/with_replies'), true);
-  assert.equal(isProfilePage('/elonmusk/highlights'), true);
-  assert.equal(isProfilePage('/elonmusk/articles'), true);
-  assert.equal(isProfilePage('/elonmusk/media'), true);
-  assert.equal(isProfilePage('/elonmusk/likes'), true);
-  assert.equal(isProfilePage('/elonmusk/superfollows'), true);
-  assert.equal(isProfilePage('/elonmusk/followers'), true);
-  assert.equal(isProfilePage('/elonmusk/following'), true);
-  assert.equal(isProfilePage('https://x.com/elonmusk/with_replies'), true);
-
-  // 3. Tweet status and conversation pages (should be false)
-  assert.equal(isProfilePage('/elonmusk/status/18382746182947192'), false);
-  assert.equal(isProfilePage('https://x.com/elonmusk/status/18382746182947192'), false);
-  assert.equal(isProfilePage('https://twitter.com/elonmusk/status/18382746182947192'), false);
-  assert.equal(isProfilePage('/elonmusk/status/18382746182947192/photo/1'), false);
-  assert.equal(isProfilePage('/elonmusk/status/18382746182947192/likes'), false);
-
-  // 4. Non-profile timelines & system routes (should be false)
-  assert.equal(isProfilePage('/home'), false);
-  assert.equal(isProfilePage('/explore'), false);
-  assert.equal(isProfilePage('/notifications'), false);
-  assert.equal(isProfilePage('/messages'), false);
-  assert.equal(isProfilePage('/search?q=test'), false);
-  assert.equal(isProfilePage('/settings/account'), false);
-  assert.equal(isProfilePage('/i/bookmarks'), false);
-  assert.equal(isProfilePage('/i/lists/12345'), false);
-  assert.equal(isProfilePage('/i/communities/12345'), false);
-  assert.equal(isProfilePage('/i/grok'), false);
-  assert.equal(isProfilePage('/'), false);
-  assert.equal(isProfilePage(''), false);
-  assert.equal(isProfilePage(null), false);
-  assert.equal(isProfilePage(undefined), false);
+  // Non-home routes (should be false)
+  assert.equal(isHomePage('/search?q=test'), false);
+  assert.equal(isHomePage('https://x.com/search?q=home&src=typed_query'), false);
+  assert.equal(isHomePage('/elonmusk/status/18382746182947192'), false);
+  assert.equal(isHomePage('/elonmusk/article/18382746182947192'), false);
+  assert.equal(isHomePage('/i/web/status/18382746182947192'), false);
+  assert.equal(isHomePage('/elonmusk'), false);
+  assert.equal(isHomePage('/elonmusk/with_replies'), false);
+  assert.equal(isHomePage('/explore'), false);
+  assert.equal(isHomePage('/notifications'), false);
+  assert.equal(isHomePage('/messages'), false);
+  assert.equal(isHomePage('/i/bookmarks'), false);
+  assert.equal(isHomePage('/i/lists/12345'), false);
+  assert.equal(isHomePage('/i/communities/12345'), false);
+  assert.equal(isHomePage('/home/extra'), false);
+  assert.equal(isHomePage('/'), false);
+  assert.equal(isHomePage(''), false);
+  assert.equal(isHomePage(null), false);
+  assert.equal(isHomePage(undefined), false);
 });
 
 test('extractUsersFromGraphQLResponse reads core.screen_name when legacy has no handle', () => {
@@ -987,31 +921,5 @@ test('notInterestedScore prefers the exact post action and ignores positive inte
   assert.equal(notInterestedScore('感兴趣'), 0);
   assert.equal(notInterestedScore('Follow @gitlab'), 0);
   assert.ok(notInterestedScore('对此帖子不感兴趣') > notInterestedScore('不感兴趣'));
-});
-
-test('isStatusPage identifies post and article detail pages and excludes timelines/profiles', () => {
-  assert.equal(isStatusPage('/elonmusk/status/18382746182947192'), true);
-  assert.equal(isStatusPage('https://x.com/elonmusk/status/18382746182947192'), true);
-  assert.equal(isStatusPage('https://twitter.com/elonmusk/status/18382746182947192?s=20'), true);
-  assert.equal(isStatusPage('/elonmusk/status/18382746182947192/photo/1'), true);
-  assert.equal(isStatusPage('/elonmusk/status/18382746182947192/likes'), true);
-  assert.equal(isStatusPage('/elonmusk/statuses/18382746182947192'), true);
-  assert.equal(isStatusPage('/i/status/18382746182947192'), true);
-  assert.equal(isStatusPage('/i/web/status/18382746182947192'), true);
-  assert.equal(isStatusPage('/elonmusk/article/18382746182947192'), true);
-  assert.equal(isStatusPage('/i/article/18382746182947192'), true);
-
-  assert.equal(isStatusPage('/home'), false);
-  assert.equal(isStatusPage('/explore'), false);
-  assert.equal(isStatusPage('/search?q=status'), false);
-  assert.equal(isStatusPage('/elonmusk'), false);
-  assert.equal(isStatusPage('/elonmusk/with_replies'), false);
-  assert.equal(isStatusPage('/elonmusk/articles'), false);
-  assert.equal(isStatusPage('/i/lists/12345'), false);
-  assert.equal(isStatusPage('/i/bookmarks'), false);
-  assert.equal(isStatusPage('/'), false);
-  assert.equal(isStatusPage(''), false);
-  assert.equal(isStatusPage(null), false);
-  assert.equal(isStatusPage(undefined), false);
 });
 
