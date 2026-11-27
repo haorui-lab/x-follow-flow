@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.8
+// @version      0.5.12
 // @description  Add a native-style Follow / Unfollow icon beside Share, plus a header shortcut that triggers "Not interested in this post".
 // @description:zh-CN 在 X 时间线分享按钮右侧增加关注/取关按钮，并在帖子右上角「···」左侧增加「对此帖子不感兴趣」快捷入口。
 // @author       haorui
@@ -27,7 +27,7 @@
     scanDebounceMs: 50,
     maxCaretWaitMs: 800,
   // frown | thumb | funnel | eye
-  notInterestedIcon: 'eye'
+  notInterestedIcon: 'funnel'
   };
 
   const RESERVED_ROUTES = new Set([
@@ -217,15 +217,36 @@
     return MORE_LABELS.has(text);
   }
 
+  function engagementControl(root) {
+    if (!root || typeof root.querySelector !== 'function') return null;
+    return root.querySelector('[data-engagement-action], [data-testid="reply"], [data-testid="like"], [data-testid="share"]');
+  }
+
+  // The whole post can sit inside role="group" on the rebuilt timeline.
+  // Only the engagement row (reply / repost / like / share) is the action bar.
+  function caretIsInActionBar(btn) {
+    if (!btn || typeof btn.closest !== 'function') return false;
+    let group = btn.closest('[role="group"]');
+    while (group) {
+      const control = engagementControl(group);
+      if (control && typeof control.closest === 'function' && control.closest('[role="group"]') === group) {
+        return true;
+      }
+      const parent = group.parentElement;
+      group = parent && typeof parent.closest === 'function' ? parent.closest('[role="group"]') : null;
+    }
+    return false;
+  }
+
   function findCaretButton(root) {
     if (!root || typeof root.querySelector !== 'function') return null;
     const legacy = root.querySelector('button[data-testid="caret"]');
-    if (legacy) return legacy;
+    if (legacy && !caretIsInActionBar(legacy)) return legacy;
 
     try {
-      const iconButtons = root.querySelectorAll('button:has(use[href="#icon-more-dots-hor"])');
+      const iconButtons = root.querySelectorAll('button:has(use[href="#icon-more-dots-hor"]), button:has(use[href*="icon-more-dots"])');
       for (const icon of iconButtons) {
-        if (icon.closest && icon.closest('[role="group"]')) continue;
+        if (caretIsInActionBar(icon)) continue;
         return icon;
       }
     } catch (e) {}
@@ -233,7 +254,8 @@
     const buttons = root.querySelectorAll('button[aria-label], button[aria-haspopup="menu"], button[data-slot="xds-menu-trigger"]');
     let fallback = null;
     for (const btn of buttons) {
-      if (btn.closest && btn.closest('[role="group"], [data-engagement-action], .whitespace-pre-wrap')) continue;
+      if (caretIsInActionBar(btn)) continue;
+      if (btn.closest && btn.closest('[data-engagement-action], .whitespace-pre-wrap')) continue;
       if (isMoreLabel(btn.getAttribute('aria-label'))) return btn;
       if (!fallback && (btn.getAttribute('aria-haspopup') === 'menu' || btn.getAttribute('data-slot') === 'xds-menu-trigger')) {
         fallback = btn;
@@ -281,6 +303,10 @@
       }
       container.remove();
     }
+  }
+
+  function removeAllNotInterestedIcons() {
+    document.querySelectorAll('.x-not-interested-container').forEach((el) => el.remove());
   }
 
   // High-Recognition Crisp SVG Icons (+ / • / −) without outer borders
@@ -336,7 +362,7 @@
     `,
     funnel: `
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 5h16l-6 7v6.2L10 20v-8L4 5z"></path>
+        <path d="M4 4.5h16l-6 7.1v6.4l-4 1.5v-7.9L4 4.5z"></path>
       </svg>
     `,
     eye: `
@@ -1170,12 +1196,21 @@
 
       /* Header shortcut, sitting in the flex cluster immediately left of ··· */
       .x-not-interested-container {
-        display: inline-flex;
+        display: inline-flex !important;
         align-items: center;
         justify-content: center;
-        flex: 0 0 auto;
+        flex: 0 0 auto !important;
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        overflow: visible;
         position: relative;
-        z-index: 2;
+        z-index: 3;
+      }
+      .x-not-interested-container svg {
+        width: 18px;
+        height: 18px;
+        display: block;
       }
       .x-not-interested-btn {
         width: 32px;
@@ -1461,7 +1496,7 @@
   }
 
   function notInterestedIconSvg() {
-    return ICONS[CONFIG.notInterestedIcon] || ICONS.eye;
+    return ICONS[CONFIG.notInterestedIcon] || ICONS.funnel;
   }
 
   function createNotInterestedButton(tweetElement) {
@@ -1516,6 +1551,7 @@
 
   function processNotInterested(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
+    if (isProfilePage()) return;
 
     const author = extractUsernameFromTweet(tweetArticle);
     const currentUser = getCurrentUser();
@@ -1528,7 +1564,7 @@
 
     const caret = findCaretButton(tweetArticle);
     if (!caret || !caret.parentElement) return;
-    if (caret.closest && caret.closest('[role="group"]')) return;
+    if (caretIsInActionBar(caret)) return;
 
     caret.parentElement.insertBefore(createNotInterestedButton(tweetArticle), caret);
   }
@@ -1741,35 +1777,49 @@
       scanScheduled = false;
       if (isProfilePage()) {
         removeAllFollowIcons();
+        removeAllNotInterestedIcons();
       }
       const tweets = collectTimelinePosts(document);
       for (const tweet of tweets) {
-        if (!isProfilePage()) processTweet(tweet);
+        if (isProfilePage()) continue;
+        processTweet(tweet);
         processNotInterested(tweet);
       }
     }, CONFIG.scanDebounceMs);
+  }
+
+  function subtreeHas(node, selector) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+    if (node.matches && node.matches(selector)) return true;
+    return !!(node.querySelector && node.querySelector(selector));
   }
 
   function initObserver() {
     const observer = new MutationObserver((mutations) => {
       let shouldScan = false;
       for (const mutation of mutations) {
-        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-          for (const node of mutation.addedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (node.matches && (node.matches('article') || (node.querySelector && node.querySelector('article')))) {
-                shouldScan = true;
-                break;
-              }
-            }
+        if (mutation.type !== 'childList') continue;
+        // The header cluster is redrawn after hydration and drops foreign nodes.
+        // Putting the shortcut back is what keeps the eye visible.
+        const added = mutation.addedNodes;
+        const removed = mutation.removedNodes;
+        for (let i = 0; i < added.length; i++) {
+          if (subtreeHas(added[i], 'article, button[aria-label], use[href="#icon-more-dots-hor"], use[href*="icon-more-dots"]')) {
+            shouldScan = true;
+            break;
+          }
+        }
+        if (shouldScan) break;
+        for (let i = 0; i < removed.length; i++) {
+          if (subtreeHas(removed[i], '.x-not-interested-container, article')) {
+            shouldScan = true;
+            break;
           }
         }
         if (shouldScan) break;
       }
 
-      if (shouldScan) {
-        scheduleScan();
-      }
+      if (shouldScan) scheduleScan();
     });
 
     observer.observe(document.body || document.documentElement, {
@@ -1786,6 +1836,7 @@
       cachedCurrentUser = null;
       if (isProfilePage()) {
         removeAllFollowIcons();
+        removeAllNotInterestedIcons();
       }
       scheduleScan();
     };
@@ -1819,6 +1870,9 @@
       initHoverCardObserver();
       initObserver();
       scheduleScan();
+      // Hydration redraws the header once, after the first scan.
+      setTimeout(scheduleScan, 700);
+      setTimeout(scheduleScan, 2000);
     };
 
     if (document.readyState === 'loading') {
