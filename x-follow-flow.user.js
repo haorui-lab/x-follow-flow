@@ -2,7 +2,7 @@
 // @name         X FollowFlow
 // @name:zh-CN   X FollowFlow - 推荐流关注/取关助手
 // @namespace    https://github.com/haorui-lab/x-follow-flow
-// @version      0.5.12
+// @version      0.5.13
 // @description  Add a native-style Follow / Unfollow icon beside Share, plus a header shortcut that triggers "Not interested in this post".
 // @description:zh-CN 在 X 时间线分享按钮右侧增加关注/取关按钮，并在帖子右上角「···」左侧增加「对此帖子不感兴趣」快捷入口。
 // @author       haorui
@@ -93,6 +93,35 @@
       return true;
     }
     if (segments.length === 2 && segments[1].toLowerCase() !== 'status') {
+      return true;
+    }
+
+    return false;
+  }
+
+  function isStatusPage(urlOrPath) {
+    const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
+      .replace(/^https?:\/\/[^\/]+/, '')
+      .split('?')[0]
+      .split('#')[0];
+
+    const segments = path.split('/').filter(Boolean).map((s) => s.toLowerCase());
+    if (segments.length < 3) return false;
+
+    if (
+      (segments[1] === 'status' || segments[1] === 'statuses' || segments[1] === 'article') &&
+      /^\d+$/.test(segments[2])
+    ) {
+      return true;
+    }
+
+    if (
+      segments.length >= 4 &&
+      segments[0] === 'i' &&
+      segments[1] === 'web' &&
+      (segments[2] === 'status' || segments[2] === 'statuses') &&
+      /^\d+$/.test(segments[3])
+    ) {
       return true;
     }
 
@@ -1551,11 +1580,14 @@
 
   function processNotInterested(tweetArticle) {
     if (!tweetArticle || !tweetArticle.isConnected) return;
-    if (isProfilePage()) return;
+    const existing = queryOwn(tweetArticle, '.x-not-interested-container');
+    if (isProfilePage() || isStatusPage()) {
+      if (existing) existing.remove();
+      return;
+    }
 
     const author = extractUsernameFromTweet(tweetArticle);
     const currentUser = getCurrentUser();
-    const existing = queryOwn(tweetArticle, '.x-not-interested-container');
     if (currentUser && author && author === currentUser) {
       if (existing) existing.remove();
       return;
@@ -1778,12 +1810,16 @@
       if (isProfilePage()) {
         removeAllFollowIcons();
         removeAllNotInterestedIcons();
+      } else if (isStatusPage()) {
+        removeAllNotInterestedIcons();
       }
       const tweets = collectTimelinePosts(document);
       for (const tweet of tweets) {
         if (isProfilePage()) continue;
         processTweet(tweet);
-        processNotInterested(tweet);
+        if (!isStatusPage()) {
+          processNotInterested(tweet);
+        }
       }
     }, CONFIG.scanDebounceMs);
   }
@@ -1836,6 +1872,8 @@
       cachedCurrentUser = null;
       if (isProfilePage()) {
         removeAllFollowIcons();
+        removeAllNotInterestedIcons();
+      } else if (isStatusPage()) {
         removeAllNotInterestedIcons();
       }
       scheduleScan();

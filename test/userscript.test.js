@@ -263,6 +263,38 @@ export function isProfilePage(urlOrPath) {
 }
 
 /**
+ * Determines whether a URL or path represents a post/article detail page
+ */
+export function isStatusPage(urlOrPath) {
+  const path = (urlOrPath || (typeof window !== 'undefined' ? window.location.pathname : ''))
+    .replace(/^https?:\/\/[^\/]+/, '')
+    .split('?')[0]
+    .split('#')[0];
+
+  const segments = path.split('/').filter(Boolean).map((s) => s.toLowerCase());
+  if (segments.length < 3) return false;
+
+  if (
+    (segments[1] === 'status' || segments[1] === 'statuses' || segments[1] === 'article') &&
+    /^\d+$/.test(segments[2])
+  ) {
+    return true;
+  }
+
+  if (
+    segments.length >= 4 &&
+    segments[0] === 'i' &&
+    segments[1] === 'web' &&
+    (segments[2] === 'status' || segments[2] === 'statuses') &&
+    /^\d+$/.test(segments[3])
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Extracts username from User-Name links or text
  */
 export function extractUsernameFromLinks(links, textContent = '') {
@@ -955,5 +987,31 @@ test('notInterestedScore prefers the exact post action and ignores positive inte
   assert.equal(notInterestedScore('感兴趣'), 0);
   assert.equal(notInterestedScore('Follow @gitlab'), 0);
   assert.ok(notInterestedScore('对此帖子不感兴趣') > notInterestedScore('不感兴趣'));
+});
+
+test('isStatusPage identifies post and article detail pages and excludes timelines/profiles', () => {
+  assert.equal(isStatusPage('/elonmusk/status/18382746182947192'), true);
+  assert.equal(isStatusPage('https://x.com/elonmusk/status/18382746182947192'), true);
+  assert.equal(isStatusPage('https://twitter.com/elonmusk/status/18382746182947192?s=20'), true);
+  assert.equal(isStatusPage('/elonmusk/status/18382746182947192/photo/1'), true);
+  assert.equal(isStatusPage('/elonmusk/status/18382746182947192/likes'), true);
+  assert.equal(isStatusPage('/elonmusk/statuses/18382746182947192'), true);
+  assert.equal(isStatusPage('/i/status/18382746182947192'), true);
+  assert.equal(isStatusPage('/i/web/status/18382746182947192'), true);
+  assert.equal(isStatusPage('/elonmusk/article/18382746182947192'), true);
+  assert.equal(isStatusPage('/i/article/18382746182947192'), true);
+
+  assert.equal(isStatusPage('/home'), false);
+  assert.equal(isStatusPage('/explore'), false);
+  assert.equal(isStatusPage('/search?q=status'), false);
+  assert.equal(isStatusPage('/elonmusk'), false);
+  assert.equal(isStatusPage('/elonmusk/with_replies'), false);
+  assert.equal(isStatusPage('/elonmusk/articles'), false);
+  assert.equal(isStatusPage('/i/lists/12345'), false);
+  assert.equal(isStatusPage('/i/bookmarks'), false);
+  assert.equal(isStatusPage('/'), false);
+  assert.equal(isStatusPage(''), false);
+  assert.equal(isStatusPage(null), false);
+  assert.equal(isStatusPage(undefined), false);
 });
 
